@@ -1,25 +1,39 @@
 {
   "expo": {
-    "name": "pedrinho-travels",
+    "name": "Pedrinho Travels",
     "slug": "pedrinho-travels",
     "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "orientation": "landscape",
     "userInterfaceStyle": "light",
+    "icon": "./assets/images/icon.png",
     "ios": {
+      "bundleIdentifier": "com.pedrinhotravels.app",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.pedrinhotravels.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "predictiveBackGestureEnabled": false
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#FFF0DC"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-audio",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFF0DC"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
     }
   }
 }

@@ -35,5 +35,5 @@ export const FR: CountryData = {
     { kind: 'water', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'D', mode: 'lydian', timbre: 'harp', tempo: 66 },
+  music: { key: 'D', mode: 'lydian', instrument: 'accordion', tempo: 66 },
 };

@@ -35,5 +35,5 @@ export const GB: CountryData = {
     { kind: 'water', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'A', mode: 'mixolydian', timbre: 'flute', tempo: 64 },
+  music: { key: 'A', mode: 'mixolydian', instrument: 'whistle', tempo: 64 },
 };

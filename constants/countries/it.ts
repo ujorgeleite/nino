@@ -34,5 +34,5 @@ export const IT: CountryData = {
     { kind: 'hill', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'F', mode: 'major', timbre: 'marimba', tempo: 74 },
+  music: { key: 'F', mode: 'major', instrument: 'mandolin', tempo: 74 },
 };

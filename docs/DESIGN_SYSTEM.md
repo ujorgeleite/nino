@@ -260,6 +260,66 @@ whole response under 100ms** (rule 4).
 
 ---
 
+## Sound
+
+All audio is synthesized (`scripts/generate-*.js` over `scripts/lib/dsp.js`).
+Nothing is sampled or licensed — which matters most for the animals, since
+animal recordings are exactly the kind of asset that carries rights.
+
+### How realism is achieved
+
+The first generation was additive sine stacks through one-pole filters, which
+is why it read as beeps. Three techniques replaced that:
+
+| Technique | Used for | Why it works |
+|---|---|---|
+| **Source-filter** (formants) | every animal voice | A call is a buzzy glottal pulse shaped by the resonances of a throat. Those resonances distinguish a moo from a meow far more than pitch does — a cow and a cat can hit the same note. |
+| **Karplus-Strong** | mandolin, zither, violin, bowed folk | A noise burst in a damped delay line physically *is* a plucked string. It has an attack, a body and a decay no additive stack reproduces. |
+| **Modal** with per-partial decay | bells, bars, wood, metal | Real struck objects lose their high partials first. Decaying all partials together is what makes synthetic metal sound like a beep. |
+
+Two details carry more weight than their size suggests:
+- **Transients.** Every impact begins with a few milliseconds of filtered
+  noise — the striker itself. Its absence is most of what reads as "computer".
+- **Room.** A short Schroeder reverb puts a sound *somewhere*. A perfectly dry
+  cue exists in a vacuum.
+
+Every file passes through `removeDC` before normalising. A waveform not centred
+on zero wastes headroom and can click; the Karplus-Strong feedback loop
+accumulates a bias, and the violin measured 0.126 before this was added.
+
+### Loudness
+
+Peaks are assigned per cue, and the ordering **encodes rule 10**: `win` is the
+loudest thing in the app (0.95) and `noMatch` is quieter than `match` (0.50 vs
+0.75), so celebration outweighs failure by construction rather than by ear.
+
+Music normalises to 0.40 — under every effect, so a cue is always audible over
+the bed.
+
+### Music: per country AND per game
+
+Each country has an instrument that **belongs** there: a carillon for the
+Netherlands, a musette accordion for France, an alphorn for Switzerland, a
+mandolin for Italy, a nyckelharpa-ish bowed drone for Scandinavia. A child who
+cannot name Switzerland can still hear that an alphorn is not an accordion.
+
+Each game gets its own arrangement of that instrument:
+
+| | Memory | Shape Fit |
+|---|---|---|
+| Intent | remembering | doing |
+| Texture | sparse, suspended | gently pulsed |
+| Notes per bar | 1–2, long and overlapping | 2–4, shorter |
+| Pulse | none | soft beat every 2 beats |
+
+Both share a seed, so they are the same place heard two ways rather than two
+unrelated tunes.
+
+22 loops, ~9.5 MB. Generators are deterministic, so regenerating produces
+byte-identical files and the history only grows when a sound actually changes.
+
+---
+
 ## Easter eggs
 
 `constants/easterEggs.ts`, `components/scene/TouchableScenery.tsx`.

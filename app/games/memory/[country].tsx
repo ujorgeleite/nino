@@ -24,7 +24,7 @@ export default function MemoryCountryRoute() {
 
   const { mode } = useMode();
   const feedback = useFeedback();
-  useMusic(country.code, mode);
+  useMusic(country.code, 'memory', mode);
 
   const { cards, foundItemIds, isWon, tries, flipCard, reset, lastEvent, lastItemId, eventSeq } =
     useMemoryNL(country.items);

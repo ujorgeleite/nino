@@ -35,5 +35,5 @@ export const DK: CountryData = {
     { kind: 'water', x: 0.5, scale: 1.15 },
   ],
 
-  music: { key: 'F', mode: 'lydian', timbre: 'musicBox', tempo: 62 },
+  music: { key: 'F', mode: 'lydian', instrument: 'musicBox', tempo: 62 },
 };

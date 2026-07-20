@@ -34,5 +34,5 @@ export const DE: CountryData = {
     { kind: 'hill', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'G', mode: 'major', timbre: 'bells', tempo: 68 },
+  music: { key: 'G', mode: 'major', instrument: 'glockenspiel', tempo: 68 },
 };

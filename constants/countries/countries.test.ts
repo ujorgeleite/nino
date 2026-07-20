@@ -207,10 +207,21 @@ describe('cross-country properties', () => {
 
   it('varies the music so the app does not sound like one long track', () => {
     const signatures = COUNTRIES.map(
-      (c) => `${c.music.key}-${c.music.mode}-${c.music.timbre}`,
+      (c) => `${c.music.key}-${c.music.mode}-${c.music.instrument}`,
     );
     // Not necessarily all unique, but the app must not be monotone.
     expect(new Set(signatures).size).toBeGreaterThanOrEqual(8);
+  });
+
+  it('gives almost every country its own instrument', () => {
+    // Instrumentation carries more of "where am I" than key or mode. Sweden
+    // and Norway deliberately share a bowed folk instrument — they are the
+    // same musical region — but nobody else may double up.
+    const instruments = COUNTRIES.map((c) => c.music.instrument);
+    const counts = new Map<string, number>();
+    for (const i of instruments) counts.set(i, (counts.get(i) ?? 0) + 1);
+    const shared = [...counts.entries()].filter(([, n]) => n > 1);
+    expect(shared).toEqual([['bowedFolk', 2]]);
   });
 
   it('reuses items across countries so a child meets old friends', () => {

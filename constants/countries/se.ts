@@ -35,5 +35,5 @@ export const SE: CountryData = {
     { kind: 'water', x: 0.5, scale: 0.9 },
   ],
 
-  music: { key: 'D', mode: 'dorian', timbre: 'harp', tempo: 60 },
+  music: { key: 'D', mode: 'dorian', instrument: 'bowedFolk', tempo: 60 },
 };

@@ -36,5 +36,5 @@ export const BE: CountryData = {
     { kind: 'water', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'F', mode: 'major', timbre: 'marimba', tempo: 70 },
+  music: { key: 'F', mode: 'major', instrument: 'marimba', tempo: 70 },
 };

@@ -97,13 +97,33 @@ export type CountryPalette = {
 // ---------------------------------------------------------------------------
 
 export type MusicMode = 'major' | 'lydian' | 'dorian' | 'mixolydian';
-export type MusicTimbre = 'musicBox' | 'marimba' | 'harp' | 'flute' | 'bells';
+
+/**
+ * The instrument a country's music is played on.
+ *
+ * Chosen to BELONG somewhere, not just to sound different. Instrumentation
+ * carries far more of "where am I" than key or mode ever could — a child who
+ * cannot name Switzerland can still hear that an alphorn is not an accordion.
+ *
+ * Each is synthesized in scripts/generate-music.js; none is sampled.
+ */
+export type MusicInstrument =
+  | 'carillon' //     bell towers — the Low Countries
+  | 'accordion' //    musette — France
+  | 'alphorn' //      a long natural horn across a valley — Switzerland
+  | 'mandolin' //     paired courses, bright — Italy
+  | 'bowedFolk' //    nyckelharpa / hardanger fiddle — Sweden, Norway
+  | 'zither' //       the parlour instrument — Austria
+  | 'glockenspiel' // bright struck metal — Germany
+  | 'whistle' //      pennywhistle — the British Isles
+  | 'musicBox' //     fragile and nostalgic — Denmark
+  | 'marimba'; //     warm wood — Belgium
 
 export type CountryMusic = {
   /** Tonic note name, e.g. 'C', 'D', 'F#'. */
   key: string;
   mode: MusicMode;
-  timbre: MusicTimbre;
+  instrument: MusicInstrument;
   /** 60–80. Slow on purpose — TODDLER_UX.md: calm, never frantic. */
   tempo: number;
 };

@@ -33,7 +33,7 @@ export default function ShapeFitCountryRoute() {
   const feedback = useFeedback();
   const sayItem = useItemVoice();
   const { width, height } = useWindowDimensions();
-  useMusic(country.code, mode);
+  useMusic(country.code, 'shapefit', mode);
 
   const {
     trayOrder,

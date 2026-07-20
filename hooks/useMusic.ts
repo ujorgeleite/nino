@@ -26,7 +26,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useAudioPlayer } from 'expo-audio';
-import { MUSIC, MUSIC_VOLUME } from '../constants/music';
+import { MUSIC, MUSIC_VOLUME, musicFor, type MusicGame } from '../constants/music';
 import { useSound } from './useSound';
 import type { NinoMode } from '../constants/nino';
 
@@ -34,18 +34,23 @@ import type { NinoMode } from '../constants/nino';
  * Plays a country's loop for as long as the calling screen is mounted.
  *
  * @param countryCode ISO code, or undefined to play nothing.
+ * @param game        which arrangement — Memory is sparse, Shape Fit pulsed.
  * @param mode        There plays at full ambient level, Back quieter.
  */
-export function useMusic(countryCode: string | undefined, mode: NinoMode = 'there') {
+export function useMusic(
+  countryCode: string | undefined,
+  game: MusicGame,
+  mode: NinoMode = 'there',
+) {
   const { muted } = useSound();
 
-  // Created once with a placeholder source; every country swaps into it.
-  const player = useAudioPlayer(MUSIC.nl);
+  // Created once with a placeholder source; every track swaps into it.
+  const player = useAudioPlayer(MUSIC['nl-memory']);
   const currentSource = useRef<number | null>(null);
 
   // --- Source: only touched when the country actually changes --------------
   useEffect(() => {
-    const source = countryCode ? MUSIC[countryCode] : undefined;
+    const source = musicFor(countryCode, game);
     if (!source || source === currentSource.current) return;
 
     try {
@@ -55,7 +60,7 @@ export function useMusic(countryCode: string | undefined, mode: NinoMode = 'ther
     } catch {
       // A missing track must never break the game screen.
     }
-  }, [countryCode, player]);
+  }, [countryCode, game, player]);
 
   // --- Play / pause --------------------------------------------------------
   useEffect(() => {
@@ -69,7 +74,7 @@ export function useMusic(countryCode: string | undefined, mode: NinoMode = 'ther
     } catch {
       // Ignore — silence is an acceptable degradation, a crash is not.
     }
-  }, [muted, countryCode, mode, player]);
+  }, [muted, countryCode, game, mode, player]);
 
   // --- Release on unmount --------------------------------------------------
   useEffect(

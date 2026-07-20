@@ -34,5 +34,5 @@ export const CH: CountryData = {
     { kind: 'field', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'G', mode: 'lydian', timbre: 'bells', tempo: 66 },
+  music: { key: 'G', mode: 'lydian', instrument: 'alphorn', tempo: 66 },
 };

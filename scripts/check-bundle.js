@@ -15,9 +15,12 @@ const ROOT = path.join(__dirname, '..');
 
 /** Budgets in MB. Raise deliberately, with a reason, never to make CI pass. */
 const BUDGETS = {
-  'assets/music': 6, //     11 ambient loops, mono 16 kHz
-  'assets/sounds': 1, //    6 cartoon cues
-  'assets/sounds/items': 0.7, // 21 item voices (duck, horse, bicycle…)
+  // 22 loops: eleven countries × two game arrangements. Doubling the count was
+  // a deliberate feature (music personalised per game), not creep — the budget
+  // was raised to match, once, with this note.
+  'assets/music': 10,
+  'assets/sounds': 1, //    10 interface cues
+  'assets/sounds/items': 0.8, // 21 item voices, now at 22.05 kHz for formants
   'assets/mascot': 0.1, //  2 SVGs
 };
 

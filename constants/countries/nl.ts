@@ -39,5 +39,5 @@ export const NL: CountryData = {
     { kind: 'water', x: 0.5, scale: 1 },
   ],
 
-  music: { key: 'C', mode: 'major', timbre: 'musicBox', tempo: 72 },
+  music: { key: 'C', mode: 'major', instrument: 'carillon', tempo: 72 },
 };

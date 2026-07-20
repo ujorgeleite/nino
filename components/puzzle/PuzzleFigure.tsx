@@ -62,6 +62,21 @@ type Props = {
 /** Faint enough to be a hint, strong enough to promise a picture. */
 const GHOST_OPACITY = 0.17;
 
+/**
+ * The floor of a carved socket: the piece's own colour, in shadow.
+ *
+ * Washing the colour over shadowed timber was tried first and came out muddy —
+ * red read as brown, blue as grey — which destroys the one cue the child is
+ * meant to use. Darkening the colour itself keeps the hue unmistakable while
+ * still reading as the bottom of a hole rather than the surface of the board.
+ */
+function recessFloor(colour: string): string {
+  const n = parseInt(colour.slice(1), 16);
+  const shade = (c: number) => Math.round(c * 0.52);
+  const [r, g, b] = [shade((n >> 16) & 255), shade((n >> 8) & 255), shade(n & 255)];
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 export function PuzzleFigure({
   country,
   size,
@@ -77,72 +92,69 @@ export function PuzzleFigure({
 
   const { palette } = country;
 
-  // THE GHOST FADES THE WHOLE DRAWING, not just its fills.
+  // A PART IS A FLAT COLOUR, not a crop of the artwork.
   //
-  // Fading only the fills left every primitive's INK outline at full strength,
-  // so the empty board still read as a finished picture — a child could not
-  // see that anything was missing. Opacity on the group takes the strokes with
-  // it, and the ghost keeps the real colours, which says more about what the
-  // picture will be than a brown smudge did.
-  const artwork = (
-    <G opacity={ghost ? GHOST_OPACITY : 1}>
-      <Primitive
-        fill={scenePiece.fill ?? palette.structure}
-        altFill={palette.structureAlt}
-        accent={palette.accent}
-        variant={scenePiece.variant}
-      />
-    </G>
-  );
-
-  // The whole picture. Transparent behind it — the board owns the background.
-  if (!part) {
+  // Cropping the primitive meant every cut had to agree with geometry in
+  // another file; when it did not, the child was handed an outline with
+  // nothing inside it. A flat colour cannot disagree with anything, and it is
+  // also the instruction: the child matches the red piece to the red hole
+  // instead of judging whether one silhouette would fit inside another.
+  if (part) {
+    const [bx, by, bw, bh] = part.box;
     return (
-      <View style={{ width: size, height: size }} pointerEvents="none">
-        <Svg width={size} height={size} viewBox="0 0 100 100">
-          {artwork}
+      <View
+        style={{ width: (bw / 100) * size, height: (bh / 100) * size }}
+        pointerEvents="none"
+      >
+        <Svg
+          width={(bw / 100) * size}
+          height={(bh / 100) * size}
+          viewBox={`${bx} ${by} ${bw} ${bh}`}
+        >
+          <Path
+            d={part.path}
+            fill={part.colour}
+            stroke={INK}
+            // The cut edge. Without it a piece dissolves into whatever is
+            // behind it and stops reading as a separate object.
+            strokeWidth={outlined ? 3 : 2}
+            strokeLinejoin="round"
+          />
         </Svg>
       </View>
     );
   }
 
-  // One part. The viewBox crops to its bounds AND scales it, so the part is
-  // exactly the region the data declares.
-  const [bx, by, bw, bh] = part.box;
-  const w = (bw / 100) * size;
-  const h = (bh / 100) * size;
-  const clipId = `part-${part.id}`;
-
+  // The whole picture, used only for the faint guide behind the sockets.
+  // Opacity is applied to the GROUP so it takes the primitive's ink outlines
+  // with it — fading only the fills left the empty board looking finished.
   return (
-    <View style={{ width: w, height: h }} pointerEvents="none">
-      <Svg width={w} height={h} viewBox={`${bx} ${by} ${bw} ${bh}`}>
-        <Defs>
-          <ClipPath id={clipId}>
-            <Path d={part.path} />
-          </ClipPath>
-        </Defs>
-        <G clipPath={`url(#${clipId})`}>{artwork}</G>
-        {outlined && (
-          // The cut edge. Without it a piece dissolves into the artwork it
-          // came from and stops reading as a separate object.
-          <Path
-            d={part.path}
-            fill="none"
-            stroke={INK}
-            strokeWidth={3}
-            strokeLinejoin="round"
+    <View style={{ width: size, height: size }} pointerEvents="none">
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <G opacity={ghost ? GHOST_OPACITY : 1}>
+          <Primitive
+            fill={scenePiece.fill ?? palette.structure}
+            altFill={palette.structureAlt}
+            accent={palette.accent}
+            variant={scenePiece.variant}
           />
-        )}
+        </G>
       </Svg>
     </View>
   );
 }
 
-/** An empty socket: the part's silhouette, recessed into the board. */
+/**
+ * An empty socket: the part's silhouette, tinted with THAT PART'S COLOUR.
+ *
+ * The tint is the whole instruction. A child sees a pale red hole and a solid
+ * red piece and fills one with the other; nothing rests on comparing shapes,
+ * which is a hard spatial judgement at two.
+ */
 export function PartSocket({
   part,
   size,
-  fill = 'rgba(38, 25, 15, 0.20)',
+  fill,
 }: {
   part: FigurePart;
   size: number;
@@ -151,20 +163,56 @@ export function PartSocket({
   const [bx, by, bw, bh] = part.box;
   const w = (bw / 100) * size;
   const h = (bh / 100) * size;
+  const clipId = `socket-${part.id}`;
 
+  // CARVED, NOT DRAWN ON.
+  //
+  // A flat tinted silhouette read as decoration — a shape painted on the
+  // board rather than a hole in it — so it was not obvious that anything was
+  // meant to go inside. This builds a recess the way a wooden puzzle tray
+  // has one: the outline is redrawn twice inside its own clip, offset down
+  // and right for the shadowed wall the light does not reach, and up and
+  // left for the lit rim on the far side. Two extra paths, no filters, and
+  // the depth is unmistakable.
   return (
     <Svg width={w} height={h} viewBox={`${bx} ${by} ${bw} ${bh}`}>
+      <Defs>
+        <ClipPath id={clipId}>
+          <Path d={part.path} />
+        </ClipPath>
+      </Defs>
+
+      {/* The floor of the recess. Opaque, because a hole shows its own bottom
+          rather than whatever is behind the panel — a translucent tint over
+          the board read as paint on the surface. */}
+      <Path d={part.path} fill={fill ?? recessFloor(part.colour)} />
+
+      <G clipPath={`url(#${clipId})`}>
+        <Path
+          d={part.path}
+          transform="translate(2.2, 2.8)"
+          fill="none"
+          stroke="rgba(28, 18, 12, 0.42)"
+          strokeWidth={5}
+          strokeLinejoin="round"
+        />
+        <Path
+          d={part.path}
+          transform="translate(-2, -2.4)"
+          fill="none"
+          stroke="rgba(255, 255, 255, 0.34)"
+          strokeWidth={4}
+          strokeLinejoin="round"
+        />
+      </G>
+
+      {/* The lip of the recess, crisp over both. */}
       <Path
         d={part.path}
-        fill={fill}
+        fill="none"
         stroke={INK}
-        strokeWidth={2.5}
+        strokeWidth={2.8}
         strokeLinejoin="round"
-        // A DASHED edge says empty. Solid outlines at full strength made the
-        // untouched board look like a finished drawing, so a child could not
-        // see that anything was missing.
-        strokeDasharray="7 5"
-        strokeOpacity={0.5}
       />
     </Svg>
   );

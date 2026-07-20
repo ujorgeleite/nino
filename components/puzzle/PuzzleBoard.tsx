@@ -2,19 +2,24 @@
 // The picture being assembled.
 //
 // THREE LAYERS, and the order is the design:
-//   1. the BACKGROUND — this country's sky over its ground. Fixed, and the
-//      one COLOURED thing on the screen: the landscape around the square is
-//      greyed (constants/quietCountry.ts) so that every colour a child sees
-//      belongs to the puzzle. The square therefore reads as a lit object in
-//      front of a quiet world, rather than as a window onto more of the same.
-//   2. the GHOST — the whole drawing, very faint. It shows what the picture
-//      will be, which is what makes dragging have a purpose for a child who
-//      cannot hold the goal in their head.
-//   3. the PARTS — each either an empty socket in its own silhouette, or the
-//      real artwork once its piece has been placed.
+//   1. the BOARD — a wooden panel. Not the country's sky: a socket painted
+//      onto a landscape read as decoration, a shape drawn ON the board rather
+//      than a hole IN it, and it was not obvious that anything was meant to go
+//      inside. A wooden tray with recesses cut into it is a thing every
+//      toddler has already handled, and it says what to do without a word.
+//      It is also the one warm, lit object on the screen: the landscape around
+//      it is greyed (constants/quietCountry.ts), so the panel and the coloured
+//      pieces own every colour a child sees.
+//   2. the RECESSES — each either an empty socket carved in its own
+//      silhouette and tinted with its piece's colour, or the piece itself once
+//      it has been placed.
 //
 // A socket is drawn from the same path as the piece that fills it, so the two
 // can never disagree about what fits where.
+//
+// There is no longer a ghost of the finished picture behind them. It existed
+// to say what the puzzle would become, and once every recess carried its own
+// colour it added nothing but noise over the top of them.
 
 import React, { useCallback, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -27,6 +32,7 @@ import Animated, {
 import PuzzleFigure, { PartSocket } from './PuzzleFigure';
 import { castShadow, HALO } from '../../constants/depth';
 import { COLORS, RADII } from '../../constants/nino';
+import { COLORS as WOOD_TOKENS } from '../../constants/theme';
 import type { FigurePart } from '../../constants/figureParts';
 import type { CountryData } from '../../constants/countries';
 
@@ -41,6 +47,14 @@ type Props = {
   onCellMeasured: (id: string, centre: { x: number; y: number }) => void;
 };
 
+/** The panel's timber, and a few grain lines so it is a surface not a slab. */
+const WOOD = {
+  light: WOOD_TOKENS.woodLight,
+  mid: WOOD_TOKENS.woodMid,
+  grain: WOOD_TOKENS.woodGrainRgba,
+} as const;
+const GRAIN = [11, 27, 44, 58, 73, 89] as const;
+
 export function PuzzleBoard({
   country,
   parts,
@@ -51,26 +65,24 @@ export function PuzzleBoard({
 }: Props) {
   return (
     <View style={[styles.frame, { width: size, height: size }]}>
-      {/* 1. The fixed background: this country's sky over its ground. */}
+      {/* 1. The panel: wood, with a little grain so it reads as a surface. */}
       <LinearGradient
-        colors={[country.palette.skyThere[0], country.palette.skyThere[1]]}
+        colors={[WOOD.light, WOOD.mid]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
         style={StyleSheet.absoluteFill}
         pointerEvents="none"
       />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ground,
-          { height: size * 0.18, backgroundColor: country.palette.ground },
-        ]}
-      />
-
-      {/* 2. The ghost: what the picture will be. */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <PuzzleFigure country={country} size={size} ghost />
+        {GRAIN.map((top) => (
+          <View
+            key={top}
+            style={[styles.grain, { top: `${top}%`, backgroundColor: WOOD.grain }]}
+          />
+        ))}
       </View>
 
-      {/* 3. The parts. */}
+      {/* 2. The recesses. */}
       {parts.map((part) => (
         <Socket
           key={part.id}
@@ -156,7 +168,7 @@ const styles = StyleSheet.create({
     // drop shadow lifts it off the grey landscape behind it.
     ...castShadow(1),
   },
-  ground: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  grain: { position: 'absolute', left: 0, right: 0, height: 2 },
   socket: { position: 'absolute' },
 });
 

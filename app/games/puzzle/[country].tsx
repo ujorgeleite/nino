@@ -10,6 +10,13 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import CountryScene from '../../../components/scene/CountryScene';
 import GameHud from '../../../components/game/GameHud';
@@ -96,6 +103,37 @@ export default function PuzzleCountryRoute() {
     if (isWon) markComplete(`puzzle-${country.code}`);
   }, [isWon, country.code, markComplete]);
 
+  // THE CELEBRATION: the square leaves, and the world it was hiding arrives.
+  //
+  // While playing, the landscape is grey so the puzzle owns every colour on
+  // screen. Finishing hands the colour back: the square flies out of frame,
+  // the country's real palette fades up underneath it, and the clouds and sun
+  // that were always drifting are suddenly worth looking at. Rule 10 — the
+  // celebration is the loudest thing in the game.
+  const flight = useSharedValue(0);
+
+  useEffect(() => {
+    flight.value = isWon
+      ? withDelay(220, withTiming(1, { duration: 900, easing: Easing.in(Easing.back(1.6)) }))
+      : 0;
+  }, [isWon, flight]);
+
+  const flightStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: flight.value * width * 0.9 },
+      { translateY: -flight.value * height * 0.75 },
+      { rotate: `${flight.value * 38}deg` },
+      { scale: 1 - flight.value * 0.45 },
+    ],
+    opacity: 1 - flight.value,
+  }));
+
+  // The coloured world is mounted only once it is needed, and the grey one
+  // only until then. Two skylines exist during the handover and never
+  // otherwise, which keeps the one-static-Svg rule that the frame budget
+  // depends on (see CountryScene).
+  const sceneryStyle = useAnimatedStyle(() => ({ opacity: 1 - flight.value }));
+
   // THE PICTURE GETS THE SCREEN.
   //
   // Earlier versions stacked the board over a tray, which cost the picture
@@ -106,8 +144,14 @@ export default function PuzzleCountryRoute() {
   //
   // Slack matters: an exact fit leaves nothing for rounding, and an earlier
   // attempt landed on precisely the viewport height.
-  const verticalChrome = SPACING.s5 * 2 + LAYOUT.touchMin + SPACING.s4;
-  const availableHeight = (height - verticalChrome) * 0.96;
+  //
+  // The chrome is kept as thin as it honestly can be, because the picture is
+  // what the screen is for: the HUD row is exactly one tap target tall and the
+  // padding is one step rather than two. The slack that remains covers
+  // rounding — an earlier version landed on precisely the viewport height and
+  // overflowed.
+  const verticalChrome = SPACING.s4 * 2 + LAYOUT.touchMin + SPACING.s3;
+  const availableHeight = (height - verticalChrome) * 0.99;
 
   // THE TRAY IS A GRID, not a column, because a column does not always fit.
   //
@@ -124,7 +168,10 @@ export default function PuzzleCountryRoute() {
   const trayRow = Math.min(availableHeight / trayRows - SPACING.s3, width * 0.18);
   const trayWidth = trayRow * trayCols + SPACING.s3 * (trayCols - 1);
 
-  const boardSize = Math.min(availableHeight, width - trayWidth - SPACING.s5 * 3);
+  // The board takes the height, and is CENTRED in whatever width is left once
+  // the tray has its column — it is the subject of the screen, so it sits in
+  // the middle of it rather than pinned against the left edge.
+  const boardSize = Math.min(availableHeight, width - trayWidth - SPACING.s4 * 3);
 
   // WAITING PIECES ARE DRAWN SMALLER THAN THEIR SOCKETS.
   //
@@ -200,25 +247,43 @@ export default function PuzzleCountryRoute() {
   }, [country.code, isComplete, router]);
 
   return (
-    <CountryScene country={backdrop} mode={mode}>
+    <View style={styles.root}>
+      {/* The country in full colour, revealed by the win. */}
+      {isWon ? (
+        <View style={StyleSheet.absoluteFill}>
+          <CountryScene country={country} mode={mode} />
+        </View>
+      ) : null}
+
+      {/* The grey world play happens in, which fades away on the win. */}
+      <Animated.View style={[StyleSheet.absoluteFill, sceneryStyle]}>
+        <CountryScene country={backdrop} mode={mode} />
+      </Animated.View>
+
       <View style={styles.root}>
         <GameHud onRestart={reset} mascotReaction={reaction} reactionSeq={eventSeq} />
 
         <View style={styles.layer}>
           {/* Explicit sizes, not flex: letting the wrapper expand made it
               overlap the tray, which the geometry test caught. */}
-          <View
-            style={[styles.boardWrap, { height: boardSize, width: boardSize }]}
-            testID="puzzle-board"
-          >
-            <PuzzleBoard
-              country={country}
-              parts={parts}
-              placed={placed}
-              highlighted={preview}
-              size={boardSize}
-              onCellMeasured={onCellMeasured}
-            />
+          <View style={styles.boardCentre}>
+            <Animated.View
+              style={[
+                styles.boardWrap,
+                { height: boardSize, width: boardSize },
+                flightStyle,
+              ]}
+              testID="puzzle-board"
+            >
+              <PuzzleBoard
+                country={country}
+                parts={parts}
+                placed={placed}
+                highlighted={preview}
+                size={boardSize}
+                onCellMeasured={onCellMeasured}
+              />
+            </Animated.View>
           </View>
 
           <View style={[styles.tray, { width: trayWidth, height: availableHeight }]}>
@@ -261,7 +326,7 @@ export default function PuzzleCountryRoute() {
           onPlayAgain={goNext}
         />
       ) : null}
-    </CountryScene>
+    </View>
   );
 }
 
@@ -291,13 +356,9 @@ function TraySlot({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: SPACING.s5, gap: SPACING.s4 },
-  layer: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
+  root: { flex: 1, padding: SPACING.s4, gap: SPACING.s3 },
+  layer: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  boardCentre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   boardWrap: { alignItems: 'center', justifyContent: 'center' },
   tray: {
     flexDirection: 'column',

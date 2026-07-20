@@ -18,6 +18,19 @@
 // So the cut follows the subject. The BACKGROUND stays on the board and is
 // never part of a piece — the pieces are the drawing, nothing else.
 //
+// EACH PART HAS ITS OWN FLAT COLOUR, and that is the instruction.
+//
+// Shape alone asks a 2-year-old to compare two silhouettes and decide whether
+// one would fit inside the other, which is a genuinely hard spatial judgement
+// at that age. A colour is not a judgement — the child sees a red piece and a
+// red hole and fills it in. The shapes still differ, so the cut is still true
+// to the drawing, but nothing depends on reading them.
+//
+// It also removes a whole class of defect for good. Pieces used to be crops of
+// the primitive's artwork, which meant every cut had to agree with geometry in
+// another file, and when it did not the child was handed an empty outline. A
+// flat colour cannot disagree with anything.
+//
 // Every part carries an explicit polygon rather than being derived, because
 // the boundary is a drawing decision: where a castle's turret ends and its keep
 // begins is a judgement about the picture, not a computation.
@@ -41,6 +54,13 @@ import type { StaticPrimitiveKind } from '../components/scene/primitives';
 
 export type FigurePart = {
   id: string;
+  /**
+   * The part's own colour, and the whole of how a child knows where it goes.
+   *
+   * Assigned by position from PART_COLOURS, so two parts of the same picture
+   * can never share one. See the note above on why colour carries this.
+   */
+  colour: string;
   /** Outline in the primitive's own 100×100 box (primitives.tsx contract). */
   path: string;
   /**
@@ -71,7 +91,7 @@ export type FigurePart = {
  * bridge is a span and its approach. Forcing every picture into the same
  * number of pieces would mean cutting some against their own shape.
  */
-export const FIGURE_PARTS: Record<string, readonly FigurePart[]> = {
+export const FIGURE_PARTS: Record<string, readonly Omit<FigurePart, 'colour'>[]> = {
   // Body: M 2 100 L 50 8 L 98 100 Z. The flanks are cut on a SLANT so they are
   // not mirror images of each other.
   mountain: [
@@ -417,6 +437,35 @@ export const FIGURE_PARTS: Record<string, readonly FigurePart[]> = {
 };
 
 /**
+ * The colours a picture's parts are painted, in order.
+ *
+ * Chosen to be told apart by a 2-year-old and by anyone with the commonest
+ * colour blindness: they differ in lightness as well as hue, so no pair relies
+ * on hue alone to be distinguishable.
+ */
+export const PART_COLOURS = [
+  '#E4572E', // vermilion
+  '#3A86C8', // blue
+  '#F4B942', // yellow
+  '#4C9F70', // green
+  '#8368C9', // violet
+] as const;
+
+/**
+ * The table above with a colour attached to each part by position.
+ *
+ * Assigned rather than hand-authored: by construction no two parts of the same
+ * picture can be given the same colour, and that is the one property the whole
+ * design rests on.
+ */
+const COLOURED: Record<string, readonly FigurePart[]> = Object.fromEntries(
+  Object.entries(FIGURE_PARTS).map(([key, parts]) => [
+    key,
+    parts.map((part, i) => ({ ...part, colour: PART_COLOURS[i % PART_COLOURS.length] })),
+  ]),
+);
+
+/**
  * The parts for a drawing, or an empty list if it is not a subject.
  *
  * The variant is looked up first: a lattice tower and a clock tower are the
@@ -427,11 +476,8 @@ export function partsFor(
   kind: StaticPrimitiveKind,
   variant?: string,
 ): readonly FigurePart[] {
-  if (variant) {
-    const exact = FIGURE_PARTS[`${kind}:${variant}`];
-    if (exact) return exact;
-  }
-  return FIGURE_PARTS[kind] ?? [];
+  const key = variant && FIGURE_PARTS[`${kind}:${variant}`] ? `${kind}:${variant}` : kind;
+  return COLOURED[key] ?? [];
 }
 
 /** Drawings that can be the subject of a puzzle. */

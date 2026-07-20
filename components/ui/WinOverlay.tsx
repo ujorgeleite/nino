@@ -6,7 +6,8 @@
 // The win haptic burst runs three heavy pulses; the miss gets one soft tap.
 
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import Mascot from '../mascot/Mascot';
 import { fireWinHaptics } from '../../hooks/useFeedback';
 import { useSound } from '../../hooks/useSound';
@@ -41,7 +42,15 @@ export function WinOverlay({
   }, []);
 
   return (
-    <View style={styles.scrim} testID="win-overlay">
+    // FADES IN, and stays translucent on purpose. The win uncovers the
+    // country in full colour with its clouds drifting, and a solid panel
+    // dropped over it would hide the very thing being celebrated. The delay
+    // lets the board fly out of frame first.
+    <Animated.View
+      entering={FadeIn.delay(700).duration(500)}
+      style={styles.scrim}
+      testID="win-overlay"
+    >
       <Mascot pose="full" size={170} bob reaction="celebrate" />
 
       <Text style={styles.title} allowFontScaling={false}>
@@ -64,7 +73,7 @@ export function WinOverlay({
           {actionLabel}
         </Text>
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -75,7 +84,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(34, 48, 79, 0.55)',
+    backgroundColor: 'rgba(34, 48, 79, 0.42)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.s4,

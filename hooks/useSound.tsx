@@ -53,6 +53,10 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
   const click = useAudioPlayer(SOUNDS.click);
   const ihuu = useAudioPlayer(SOUNDS.ihuu);
   const win = useAudioPlayer(SOUNDS.win);
+  const lift = useAudioPlayer(SOUNDS.lift);
+  const snapIn = useAudioPlayer(SOUNDS.snapIn);
+  const snapOut = useAudioPlayer(SOUNDS.snapOut);
+  const softDrop = useAudioPlayer(SOUNDS.softDrop);
 
   // ONE player for all 21 item voices, with its source swapped on demand.
   // Twenty-one more players would mean twenty-one decoders alive on a device
@@ -61,8 +65,8 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
   const itemSource = useRef<number | null>(null);
 
   const players = useMemo(
-    () => ({ flip, match, noMatch, click, ihuu, win }),
-    [flip, match, noMatch, click, ihuu, win],
+    () => ({ flip, match, noMatch, click, ihuu, win, lift, snapIn, snapOut, softDrop }),
+    [flip, match, noMatch, click, ihuu, win, lift, snapIn, snapOut, softDrop],
   );
 
   // Restore the persisted preference. Failure is non-fatal: default to audible.

@@ -1,43 +1,80 @@
 // components/shapefit/DraggablePiece.tsx
-// A tray piece the child drags onto the board — prompts/starting.md §7.
+// A piece the child picks up, carries, and drops into the board.
 //
-// COORDINATE MAPPING: the spec describes `getBoundingClientRect` ratios, which
-// is a DOM API with no React Native equivalent. The RN answer is the gesture's
-// absoluteX/absoluteY, reported in window space — and the sockets are measured
-// in window space too (WoodBoard), so the two compare directly with no offset
-// arithmetic. Reconstructing the point from a chain of parent offsets is what
-// broke this game the first time.
+// THIS IS THE MOMENT THE WHOLE APP IS BUILT AROUND. A 2-year-old preferred
+// this game over Memory, and the reason is agency: here the object comes
+// under their control. Everything below exists to make that feel physical.
 //
-// While dragging the piece rises to the front (elevated zIndex) and follows the
-// finger with no transition, per §7.
+// WHAT HAPPENS WHEN A FINGER LANDS:
+//
+//   1. The piece LIFTS — it scales up, rises, and its contact shadow shrinks
+//      and fades while its cast shadow grows and drifts. Three cues moving
+//      together is what reads as "off the ground" rather than "bigger".
+//   2. It stops idling. A floating piece that keeps bobbing while held feels
+//      unattached to the finger.
+//   3. Over a valid socket, that socket glows. The child does not have to
+//      guess whether they are close enough — the board tells them.
+//   4. On release it either snaps home with a suction-and-thunk, or settles
+//      back with a soft, verdict-free landing.
+//
+// Undoing is deliberately easy: a seated piece can be dragged back out. There
+// is no wrong move to protect against, so there is nothing to lock.
+
+/* eslint-disable react-hooks/immutability --
+ * This component drives an object with a finger, which in Reanimated means
+ * writing shared values from gesture callbacks — `dx.value = e.translationX`
+ * is the entire API. react-hooks/immutability models hook return values as
+ * immutable data, which is right nearly everywhere and wrong for a drag.
+ *
+ * The rule stays ON everywhere else. Only files that push pixels from a
+ * gesture get this exemption, and there are two of them.
+ */
 
 import React, { useEffect } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-  Easing,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { COLORS, MOTION, RADII, SHADOWS } from '../../constants/nino';
+import Solid from '../ui/Solid';
+import { useFloat } from '../../hooks/useFloat';
+import { COLORS, RADII } from '../../constants/nino';
 
-/** Return-to-tray spring. Tuned for a fast retry, not for bounce. */
+/** Return-to-tray spring. Snappy — a child who misses wants to try again now. */
 const RETURN_SPRING = { damping: 22, stiffness: 420, overshootClamping: true } as const;
+
+/** Settle-into-socket spring. Slightly looser, so seating has a tiny bounce. */
+const SEAT_SPRING = { damping: 16, stiffness: 340 } as const;
+
+export type DropResult = {
+  /** Did the piece seat? */
+  seated: boolean;
+  /** Where it should end up, relative to its own origin. Null means home. */
+  offset: { x: number; y: number } | null;
+};
 
 type Props = {
   emoji: string;
   tint: string;
   size: number;
-  /** Disabled once the piece is seated on the board. */
+  /** True once the piece is in its socket. It can still be dragged back out. */
   seated: boolean;
-  onLift: () => void;
-  /** Drop point in WINDOW coordinates. Returns true if the piece seated. */
-  onDrop: (point: { x: number; y: number }) => boolean;
+  /**
+   * Where the piece sits when seated, relative to its tray home.
+   *
+   * A function, not a value: the offset comes from measurements the parent
+   * holds in refs, and reading a ref during the parent's render is both
+   * fragile and flagged by react-hooks/refs.
+   */
+  resolveSeatedOffset?: () => { x: number; y: number } | null;
+  onGrab: () => void;
+  /** Called continuously while dragging, in window coordinates. */
+  onDragMove?: (point: { x: number; y: number }) => void;
+  onDrop: (point: { x: number; y: number }) => DropResult;
   accessibilityLabel: string;
   testID?: string;
 };
@@ -47,120 +84,120 @@ export function DraggablePiece({
   tint,
   size,
   seated,
-  onLift,
+  resolveSeatedOffset,
+  onGrab,
+  onDragMove,
   onDrop,
   accessibilityLabel,
   testID,
 }: Props) {
   const dx = useSharedValue(0);
   const dy = useSharedValue(0);
-  const lifted = useSharedValue(0);
-  const wiggle = useSharedValue(0);
+  const elevation = useSharedValue(0);
+  const held = useSharedValue(false);
+  // Where the piece rests between drags — tray home, or its socket.
+  const restX = useSharedValue(0);
+  const restY = useSharedValue(0);
 
-  // Idle wiggle invites the tap. It stops the moment the piece is seated.
-  useEffect(() => {
-    if (seated) {
-      wiggle.value = withTiming(0, { duration: MOTION.press });
-      return;
-    }
-    wiggle.value = withRepeat(
-      withSequence(
-        withTiming(-3, { duration: 900, easing: Easing.inOut(Easing.sin) }),
-        withTiming(3, { duration: 900, easing: Easing.inOut(Easing.sin) }),
-      ),
-      -1,
-      true,
-    );
-  }, [seated, wiggle]);
+  // Idle float stops while held and while seated: a seated piece is part of
+  // the board now, and a held one belongs to the finger.
+  const float = useFloat(testID ?? emoji, !seated);
 
-  const settle = (didSeat: boolean) => {
+  /**
+   * Moves the piece to wherever the drop decided it belongs.
+   *
+   * A worklet, because it is called back from the gesture's UI-thread work and
+   * writes shared values. Marking it as one is also what stops
+   * react-hooks/immutability reading these as render-time mutations.
+   */
+  const settle = (target: { x: number; y: number } | null) => {
     'worklet';
-    if (didSeat) {
-      // Seated pieces are re-rendered inside the socket; hide this one.
-      lifted.value = withTiming(0, { duration: 120 });
-      dx.value = 0;
-      dy.value = 0;
-      return;
-    }
-    // Rejected: spring home. Physical, not mechanical (ANIMATION_GUIDELINES).
-    //
-    // Snappy on purpose. An earlier damping 14 / stiffness 180 took 2.7s to
-    // come to rest (measured in e2e) — far too slow for a 2-year-old, who
-    // misses constantly and wants to try again immediately. A piece still
-    // drifting home is also a moving target for the retry.
-    lifted.value = withTiming(0, { duration: 140 });
-    dx.value = withSpring(0, RETURN_SPRING);
-    dy.value = withSpring(0, RETURN_SPRING);
+    const spring = target ? SEAT_SPRING : RETURN_SPRING;
+    restX.value = target?.x ?? 0;
+    restY.value = target?.y ?? 0;
+    dx.value = withSpring(restX.value, spring);
+    dy.value = withSpring(restY.value, spring);
+    elevation.value = withTiming(0, { duration: 180 });
   };
 
+  // Follow the seated position when the game state changes from outside —
+  // a restart, or the piece being placed by something other than this drag.
+  useEffect(() => {
+    // Read inside the effect, after layout has committed — never during render.
+    const offset = seated ? (resolveSeatedOffset?.() ?? null) : null;
+    settle(offset);
+    // `settle` writes shared values, which are stable identities; including it
+    // here would re-run the effect on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seated]);
+
+  function resolve(point: { x: number; y: number }) {
+    const result = onDrop(point);
+    settle(result.seated ? result.offset : null);
+  }
+
   const pan = Gesture.Pan()
-    .enabled(!seated)
-    // Toddlers press hard and drift; start dragging almost immediately.
+    // Toddlers press hard and drift; start almost immediately.
     .minDistance(2)
     .onStart(() => {
       'worklet';
-      lifted.value = withTiming(1, { duration: 120 });
-      runOnJS(onLift)();
+      held.value = true;
+      // The lift is a spring, not a ramp — it should feel like the piece
+      // jumps into the hand.
+      elevation.value = withSpring(1, { damping: 14, stiffness: 260 });
+      runOnJS(onGrab)();
     })
     .onUpdate((e) => {
       'worklet';
-      // No transition while dragging — the piece tracks the finger exactly.
-      dx.value = e.translationX;
-      dy.value = e.translationY;
+      // No easing while dragging: the piece tracks the finger exactly.
+      // Carry from wherever the piece currently rests.
+      dx.value = restX.value + e.translationX;
+      dy.value = restY.value + e.translationY;
+      if (onDragMove) runOnJS(onDragMove)({ x: e.absoluteX, y: e.absoluteY });
     })
     .onEnd((e) => {
       'worklet';
-      // Already window space — same as the measured sockets.
-      // Hit-testing is JS-side state, so cross the thread boundary explicitly.
+      held.value = false;
+      // Sockets are measured in window space, so no conversion is needed.
       runOnJS(resolve)({ x: e.absoluteX, y: e.absoluteY });
     });
 
-  function resolve(point: { x: number; y: number }) {
-    const didSeat = onDrop(point);
-    settle(didSeat);
-  }
-
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: dx.value },
-      { translateY: dy.value },
-      { rotate: `${wiggle.value}deg` },
-      { scale: 1 + lifted.value * 0.12 },
-    ],
-    zIndex: lifted.value > 0 ? 20 : 1,
-    opacity: seated ? 0 : 1,
+  const carryStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: dx.value }, { translateY: dy.value }],
+    // A held piece must render above every other piece and above the board.
+    zIndex: held.value ? 50 : seated ? 2 : 1,
   }));
 
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
-        style={[
-          styles.piece,
-          { width: size, height: size, backgroundColor: tint },
-          style,
-        ]}
+        style={[styles.wrap, { width: size, height: size }, carryStyle]}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
-        accessibilityState={{ disabled: seated }}
         testID={testID}
       >
-        <Text style={{ fontSize: size * 0.52 }} allowFontScaling={false}>
-          {emoji}
-        </Text>
+        <Solid
+          width={size}
+          height={size}
+          radius={RADII.md}
+          backgroundColor={tint}
+          borderColor={COLORS.paper}
+          borderWidth={5}
+          elevation={elevation}
+          offsetY={float.offsetY}
+          tilt={float.tilt}
+        >
+          <Text style={{ fontSize: size * 0.5 }} allowFontScaling={false}>
+            {emoji}
+          </Text>
+        </Solid>
       </Animated.View>
     </GestureDetector>
   );
 }
 
 const styles = StyleSheet.create({
-  piece: {
-    borderRadius: RADII.md,
-    borderWidth: 4,
-    borderColor: COLORS.paper,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.chunkSm,
-  },
+  wrap: { alignItems: 'center', justifyContent: 'center' },
 });
 
 export default DraggablePiece;

@@ -91,22 +91,11 @@ describe('useShapeFitNL', () => {
     expect(result.current.lastEvent).toBe('rejected');
   });
 
-  it('ignores a re-drop of an already seated piece', () => {
-    const { result } = renderHook(() => useShapeFitNL());
-    act(() => {
-      result.current.tryDrop(first, SOCKETS[first], SOCKETS);
-    });
-
-    let ok = true;
-    act(() => {
-      ok = result.current.tryDrop(first, SOCKETS[first], SOCKETS);
-    });
-
-    expect(ok).toBe(false);
-    expect(result.current.seated.size).toBe(1);
-  });
-
-  it('does not emit a lift for a seated piece', () => {
+  // BEHAVIOUR CHANGED DELIBERATELY: a seated piece used to be frozen. It can
+  // now be picked back up and moved. A 2-year-old who places something and
+  // wants it back is playing, and refusing would be the first "no" the game
+  // ever says (CLAUDE.md rule 2).
+  it('lets a seated piece be picked up again', () => {
     const { result } = renderHook(() => useShapeFitNL());
     act(() => {
       result.current.tryDrop(first, SOCKETS[first], SOCKETS);
@@ -115,7 +104,63 @@ describe('useShapeFitNL', () => {
 
     act(() => result.current.liftPiece(first));
 
-    expect(result.current.eventSeq).toBe(seqAfterSeat);
+    expect(result.current.eventSeq).toBeGreaterThan(seqAfterSeat);
+    expect(result.current.lastEvent).toBe('lift');
+  });
+
+  it('re-seating a piece already in place is harmless', () => {
+    const { result } = renderHook(() => useShapeFitNL());
+    act(() => {
+      result.current.tryDrop(first, SOCKETS[first], SOCKETS);
+    });
+    act(() => {
+      result.current.tryDrop(first, SOCKETS[first], SOCKETS);
+    });
+
+    // Still exactly one entry — no duplicate, no lost piece.
+    expect(result.current.seated.size).toBe(1);
+    expect(result.current.seated.has(first)).toBe(true);
+  });
+
+  it('unseats a piece taken back out', () => {
+    const { result } = renderHook(() => useShapeFitNL());
+    act(() => {
+      result.current.tryDrop(first, SOCKETS[first], SOCKETS);
+    });
+    expect(result.current.seated.has(first)).toBe(true);
+
+    act(() => result.current.unseatPiece(first));
+
+    expect(result.current.seated.has(first)).toBe(false);
+    expect(result.current.lastEvent).toBe('unseated');
+  });
+
+  it('unseating something that was never seated does nothing', () => {
+    const { result } = renderHook(() => useShapeFitNL());
+    const seq = result.current.eventSeq;
+
+    act(() => result.current.unseatPiece(second));
+
+    expect(result.current.eventSeq).toBe(seq);
+  });
+
+  it('a win can be undone and won again', () => {
+    // The board is never locked, not even after the celebration.
+    const { result } = renderHook(() => useShapeFitNL());
+    for (const item of NL_ITEMS) {
+      act(() => {
+        result.current.tryDrop(item.id, SOCKETS[item.id], SOCKETS);
+      });
+    }
+    expect(result.current.isWon).toBe(true);
+
+    act(() => result.current.unseatPiece(first));
+    expect(result.current.isWon).toBe(false);
+
+    act(() => {
+      result.current.tryDrop(first, SOCKETS[first], SOCKETS);
+    });
+    expect(result.current.isWon).toBe(true);
   });
 
   it('rejects gracefully when the socket map has no entry', () => {
@@ -175,5 +220,21 @@ describe('useShapeFitNL', () => {
     expect(keys).not.toContain('score');
     expect(keys).not.toContain('lives');
     expect(keys).not.toContain('mistakes');
+  });
+
+  it('moving a seated piece to the wrong place takes it out of the board', () => {
+    // Dragging a placed piece somewhere invalid should release it, not
+    // teleport it back into the socket as if nothing happened.
+    const { result } = renderHook(() => useShapeFitNL());
+    act(() => {
+      result.current.tryDrop(first, SOCKETS[first], SOCKETS);
+    });
+
+    act(() => result.current.unseatPiece(first));
+    act(() => {
+      result.current.tryDrop(first, { x: 9999, y: 9999 }, SOCKETS);
+    });
+
+    expect(result.current.seated.has(first)).toBe(false);
   });
 });

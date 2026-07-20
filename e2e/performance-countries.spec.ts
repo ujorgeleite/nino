@@ -9,6 +9,16 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
+/** Is a piece sitting in its socket? Detected by position — see shapefit.spec. */
+async function isSeated(page: Page, itemId: string): Promise<boolean> {
+  const piece = await page.getByTestId(`piece-${itemId}`).boundingBox();
+  const socket = await page.getByTestId(`socket-${itemId}`).boundingBox();
+  if (!piece || !socket) return false;
+  const pc = { x: piece.x + piece.width / 2, y: piece.y + piece.height / 2 };
+  const sc = { x: socket.x + socket.width / 2, y: socket.y + socket.height / 2 };
+  return Math.hypot(pc.x - sc.x, pc.y - sc.y) < socket.width / 3;
+}
+
 const COUNTRIES = ['nl', 'be', 'de', 'fr', 'gb', 'dk', 'se', 'no', 'ch', 'at', 'it'] as const;
 
 /** Time from opening a route to the board being interactive. */
@@ -137,16 +147,8 @@ test.describe('performance across countries', () => {
       }
       await page.mouse.up();
       await expect
-        .poll(
-          async () =>
-            Number(
-              await page
-                .getByTestId(`piece-${item}`)
-                .evaluate((el) => getComputedStyle(el).opacity),
-            ),
-          { timeout: 4000 },
-        )
-        .toBe(0);
+        .poll(() => isSeated(page, item), { timeout: 4000 })
+        .toBe(true);
       durations.push(Date.now() - t0);
     }
 

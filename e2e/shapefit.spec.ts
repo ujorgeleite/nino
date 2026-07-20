@@ -61,13 +61,22 @@ async function waitUntilStill(page: Page, testId: string, timeoutMs = 4000) {
   throw new Error(`${testId} never came to rest within ${timeoutMs}ms`);
 }
 
-/** A seated piece is faded out of the tray. */
-async function pieceOpacity(page: Page, itemId: string): Promise<number> {
-  return Number(
-    await page
-      .getByTestId(`piece-${itemId}`)
-      .evaluate((el) => getComputedStyle(el).opacity),
-  );
+/**
+ * Is a piece sitting in its socket?
+ *
+ * Detected by POSITION, not opacity. A seated piece used to fade out of the
+ * tray while a copy was drawn in the socket; it now travels into the board and
+ * stays visible, which is both better to look at and closer to how a real
+ * puzzle behaves. Overlap with its own socket is the honest test.
+ */
+async function isSeated(page: Page, itemId: string): Promise<boolean> {
+  const piece = await page.getByTestId(`piece-${itemId}`).boundingBox();
+  const socket = await page.getByTestId(`socket-${itemId}`).boundingBox();
+  if (!piece || !socket) return false;
+  const pc = { x: piece.x + piece.width / 2, y: piece.y + piece.height / 2 };
+  const sc = { x: socket.x + socket.width / 2, y: socket.y + socket.height / 2 };
+  // Within a third of the socket — comfortably "in it", not merely near it.
+  return Math.hypot(pc.x - sc.x, pc.y - sc.y) < socket.width / 3;
 }
 
 test.describe('Shape Fit NL', () => {
@@ -105,12 +114,12 @@ test.describe('Shape Fit NL', () => {
 
   test('dragging a piece onto its own socket seats it', async ({ page }) => {
     await openShapeFit(page);
-    expect(await pieceOpacity(page, 'tulip')).toBe(1);
+    expect(await isSeated(page, 'tulip')).toBe(false);
 
     await dragTo(page, 'tulip', await centreOf(page.getByTestId('socket-tulip')));
 
     // Seated pieces fade out of the tray.
-    expect(await pieceOpacity(page, 'tulip')).toBe(0);
+    expect(await isSeated(page, 'tulip')).toBe(true);
   });
 
   test('dropping on the WRONG socket returns the piece to the tray', async ({ page }) => {
@@ -119,14 +128,14 @@ test.describe('Shape Fit NL', () => {
     await dragTo(page, 'tulip', await centreOf(page.getByTestId('socket-cow')));
 
     // Nothing seats — and rule 2: nothing is lost either.
-    expect(await pieceOpacity(page, 'tulip')).toBe(1);
-    expect(await pieceOpacity(page, 'cow')).toBe(1);
+    expect(await isSeated(page, 'tulip')).toBe(false);
+    expect(await isSeated(page, 'cow')).toBe(false);
 
     // The same piece can still be played correctly afterwards. This is the
     // core toddler loop — they miss constantly — so it must be reliable.
     await waitUntilStill(page, 'piece-tulip');
     await dragTo(page, 'tulip', await centreOf(page.getByTestId('socket-tulip')));
-    expect(await pieceOpacity(page, 'tulip')).toBe(0);
+    expect(await isSeated(page, 'tulip')).toBe(true);
   });
 
   test('dropping on empty space returns the piece to the tray', async ({ page }) => {
@@ -134,7 +143,7 @@ test.describe('Shape Fit NL', () => {
 
     await dragTo(page, 'boat', { x: 1100, y: 120 });
 
-    expect(await pieceOpacity(page, 'boat')).toBe(1);
+    expect(await isSeated(page, 'boat')).toBe(false);
   });
 
   test('plays through to the win overlay', async ({ page }) => {
@@ -142,7 +151,7 @@ test.describe('Shape Fit NL', () => {
 
     for (const item of ITEMS) {
       await dragTo(page, item, await centreOf(page.getByTestId(`socket-${item}`)));
-      expect(await pieceOpacity(page, item), `${item} should have seated`).toBe(0);
+      expect(await isSeated(page, item), `${item} should have seated`).toBe(true);
     }
 
     const overlay = page.getByTestId('win-overlay');
@@ -162,19 +171,19 @@ test.describe('Shape Fit NL', () => {
     await page.waitForTimeout(SETTLE_MS);
 
     for (const item of ITEMS) {
-      expect(await pieceOpacity(page, item)).toBe(1);
+      expect(await isSeated(page, item)).toBe(false);
     }
   });
 
   test('restart mid-game returns seated pieces to the tray', async ({ page }) => {
     await openShapeFit(page);
     await dragTo(page, 'cheese', await centreOf(page.getByTestId('socket-cheese')));
-    expect(await pieceOpacity(page, 'cheese')).toBe(0);
+    expect(await isSeated(page, 'cheese')).toBe(true);
 
     await page.getByRole('button', { name: 'Start again' }).click();
     await page.waitForTimeout(SETTLE_MS);
 
-    expect(await pieceOpacity(page, 'cheese')).toBe(1);
+    expect(await isSeated(page, 'cheese')).toBe(false);
   });
 
   test('a rejected piece is back in place fast enough to retry', async ({ page }) => {

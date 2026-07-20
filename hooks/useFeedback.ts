@@ -12,19 +12,25 @@ import { useSound } from './useSound';
 import type { SoundKey } from '../constants/sounds';
 
 export type FeedbackEvent =
-  | 'tap' //      any generic press
-  | 'lift' //     card flip / piece pickup
-  | 'match' //    correct pair
-  | 'noMatch' //  wrong pair — gentle, never punishing (rule 2)
-  | 'seat' //     shape-fit piece dropped into place
-  | 'win'; //     game complete
+  | 'tap' //       any generic press
+  | 'lift' //      card flip
+  | 'grab' //      a piece comes free of the tray
+  | 'match' //     correct pair
+  | 'noMatch' //   wrong pair — gentle, never punishing (rule 2)
+  | 'seat' //      a piece is taken by the board — the payoff moment
+  | 'unseat' //    a seated piece is pulled back out — neutral, never a scolding
+  | 'softDrop' //  set down without seating
+  | 'win'; //      game complete
 
 const SOUND_FOR: Record<FeedbackEvent, SoundKey> = {
   tap: 'click',
   lift: 'flip',
+  grab: 'lift',
   match: 'match',
   noMatch: 'noMatch',
-  seat: 'ihuu',
+  seat: 'snapIn',
+  unseat: 'snapOut',
+  softDrop: 'softDrop',
   win: 'win',
 };
 
@@ -34,8 +40,16 @@ function fireHaptic(event: FeedbackEvent) {
       return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     case 'noMatch':
       return Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    case 'grab':
+      // Light: picking something up should feel effortless.
+      return Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     case 'seat':
-      return Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      // Rigid reads as a physical click into place — the whole point.
+      return Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid);
+    case 'unseat':
+      return Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+    case 'softDrop':
+      return Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
     case 'win':
       return Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     default:

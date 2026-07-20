@@ -1,21 +1,29 @@
 // components/shapefit/WoodBoard.tsx
-// The wooden board with five recessed cut-outs — prompts/starting.md §7.
-// Brown gradient, plank seams, inset highlight/shadow, chunky drop shadow.
-// Each socket shows a faint silhouette of its item until the piece is seated.
+// The board: five recessed sockets carved into wood.
 //
-// Socket centres are reported in WINDOW coordinates, because that is the space
-// the pan gesture's absoluteX/absoluteY already live in. Reporting them
-// parent-relative meant the drop point had to be reconstructed by summing a
-// chain of offsets (socket row padding, board position, layer position) — and
-// missing any one of them silently broke every drop.
+// A socket does two jobs. Empty, it shows a faint silhouette so the child
+// knows what belongs there. As a matching piece approaches, it GLOWS — the
+// board saying "yes, here" before the finger is even released.
+//
+// That glow is the biggest usability win in the game. Without it a 2-year-old
+// has to guess whether they are close enough, and a near miss is
+// indistinguishable from a wrong choice.
+//
+// Sockets report their centres in WINDOW coordinates, the same space the pan
+// gesture reports, so hit-testing needs no offset arithmetic.
 
 import React, { useCallback, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+import { HALO, RESTING } from '../../constants/depth';
+import { COLORS, RADII, SPACING } from '../../constants/nino';
 import type { CountryItem } from '../../constants/countries';
-import { COLORS, RADII, SHADOWS, SPACING } from '../../constants/nino';
 
-/** Plank tones — the wood ramp lives here, not in the Nino palette. */
 const WOOD_LIGHT = '#C89B6A';
 const WOOD_MID = '#B07F4F';
 const WOOD_DARK = '#8B5A2B';
@@ -23,12 +31,20 @@ const WOOD_DARK = '#8B5A2B';
 type Props = {
   items: readonly CountryItem[];
   seated: Set<string>;
+  /** The item currently hovering over its own socket, if any. */
+  highlighted: string | null;
   socketSize: number;
   /** Reports a socket's centre in WINDOW coordinates. */
   onSocketMeasured: (itemId: string, centre: { x: number; y: number }) => void;
 };
 
-export function WoodBoard({ items, seated, socketSize, onSocketMeasured }: Props) {
+export function WoodBoard({
+  items,
+  seated,
+  highlighted,
+  socketSize,
+  onSocketMeasured,
+}: Props) {
   const refs = useRef<Record<string, View | null>>({});
 
   const measure = useCallback(
@@ -43,51 +59,32 @@ export function WoodBoard({ items, seated, socketSize, onSocketMeasured }: Props
   );
 
   return (
-    <View style={styles.shadowWrap}>
+    <View style={[styles.shadowWrap, RESTING.high]}>
       <LinearGradient
         colors={[WOOD_LIGHT, WOOD_MID, WOOD_DARK]}
         start={{ x: 0, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={styles.board}
       >
-        {/* Plank seams: three hairlines across the face. */}
         {[0.25, 0.5, 0.75].map((t) => (
           <View key={t} pointerEvents="none" style={[styles.seam, { top: `${t * 100}%` }]} />
         ))}
-
-        {/* Inset highlight along the top edge, shadow along the bottom. */}
         <View pointerEvents="none" style={styles.insetTop} />
         <View pointerEvents="none" style={styles.insetBottom} />
 
-        <View style={styles.sockets}>
+        <View style={[styles.sockets, { gap: SPACING.s5 }]}>
           {items.map((item) => (
-            <View
+            <Socket
               key={item.id}
-              style={[
-                styles.socket,
-                { width: socketSize, height: socketSize, borderRadius: socketSize * 0.24 },
-              ]}
-              testID={`socket-${item.id}`}
-              ref={(node) => {
+              item={item}
+              size={socketSize}
+              filled={seated.has(item.id)}
+              glowing={highlighted === item.id}
+              onLayout={() => measure(item.id)}
+              innerRef={(node) => {
                 refs.current[item.id] = node;
               }}
-              // Measure after layout settles; window coords need a committed tree.
-              onLayout={() => measure(item.id)}
-            >
-              {seated.has(item.id) ? (
-                <Text style={{ fontSize: socketSize * 0.55 }} allowFontScaling={false}>
-                  {item.emoji}
-                </Text>
-              ) : (
-                // Faint silhouette: enough to aim at, not enough to look filled.
-                <Text
-                  style={[styles.silhouette, { fontSize: socketSize * 0.55 }]}
-                  allowFontScaling={false}
-                >
-                  {item.emoji}
-                </Text>
-              )}
-            </View>
+            />
           ))}
         </View>
       </LinearGradient>
@@ -95,8 +92,66 @@ export function WoodBoard({ items, seated, socketSize, onSocketMeasured }: Props
   );
 }
 
+function Socket({
+  item,
+  size,
+  filled,
+  glowing,
+  onLayout,
+  innerRef,
+}: {
+  item: CountryItem;
+  size: number;
+  filled: boolean;
+  glowing: boolean;
+  onLayout: () => void;
+  innerRef: (node: View | null) => void;
+}) {
+  const glow = useSharedValue(0);
+
+  React.useEffect(() => {
+    glow.value = withTiming(glowing ? 1 : 0, { duration: 160 });
+  }, [glowing, glow]);
+
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: glow.value * HALO.activeOpacity,
+    transform: [{ scale: 1 + glow.value * (HALO.scale - 1) }],
+  }));
+
+  return (
+    <View style={{ width: size, height: size }}>
+      {/* The halo sits behind the socket and grows out past its edge. */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.halo,
+          { width: size, height: size, borderRadius: size * 0.3 },
+          haloStyle,
+        ]}
+      />
+      <View
+        ref={innerRef}
+        onLayout={onLayout}
+        testID={`socket-${item.id}`}
+        style={[
+          styles.socket,
+          { width: size, height: size, borderRadius: size * 0.24 },
+        ]}
+      >
+        {/* The silhouette fades out once the real piece is sitting here. */}
+        <Text
+          style={[styles.silhouette, { fontSize: size * 0.55 }, filled && styles.hidden]}
+          allowFontScaling={false}
+        >
+          {item.emoji}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  shadowWrap: { ...SHADOWS.chunkLg, borderRadius: RADII.xl },
+  shadowWrap: { borderRadius: RADII.xl },
   board: {
     borderRadius: RADII.xl,
     borderWidth: 5,
@@ -127,11 +182,15 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: 'rgba(50, 25, 5, 0.26)',
   },
-  sockets: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.s4,
+  sockets: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  halo: {
+    position: 'absolute',
+    backgroundColor: HALO.color,
+    shadowColor: HALO.color,
+    shadowOpacity: 0.9,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
   },
   socket: {
     backgroundColor: 'rgba(45, 24, 8, 0.55)',
@@ -140,9 +199,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // §7: "a faint (28% brightness-0) silhouette" — opacity is RN's honest
-  // equivalent; there is no brightness filter.
+  // §7: "a faint silhouette" — opacity is RN's honest equivalent of a filter.
   silhouette: { opacity: 0.28 },
+  hidden: { opacity: 0 },
 });
 
 export default WoodBoard;

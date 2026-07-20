@@ -175,6 +175,10 @@ function normalize(samples, targetPeak) {
 const LEVEL = {
   click: 0.5, //   frequent, must not fatigue
   flip: 0.55, //   frequent
+  lift: 0.42, //   very frequent — quietest of all
+  snapIn: 0.8, //  the payoff moment of the whole game
+  snapOut: 0.5, // undoing is neutral, never a scolding
+  softDrop: 0.4,
   noMatch: 0.5, // QUIETER than match — a miss is never the loud moment
   match: 0.75,
   ihuu: 0.75,
@@ -216,6 +220,32 @@ const C5 = 523, D5 = 587, E5 = 659, F5 = 698, G5 = 784, A5 = 880, B5 = 988;
 const C6 = 1047, E6 = 1319, G6 = 1568;
 
 const CUES = {
+  // Lifting a piece: a soft upward whoosh. Says "this came free of the tray".
+  lift: () => mix([
+    at(0, slideWhistle({ durationMs: 180, startHz: 300, endHz: 620, gain: 0.16 })),
+    at(0, woodBlock({ durationMs: 50, hz: 700, gain: 0.18 })),
+  ]),
+
+  // Seating a piece: a short suction, then a woody thunk as it lands home.
+  // The suction is what makes it feel like the board TOOK the piece.
+  snapIn: () => mix([
+    at(0, slideWhistle({ durationMs: 130, startHz: 900, endHz: 380, gain: 0.22 })),
+    at(90, woodBlock({ durationMs: 110, hz: 420, gain: 0.55 })),
+    at(95, xylo({ hz: G5, durationMs: 220, gain: 0.34 })),
+  ]),
+
+  // Pulling a seated piece back out: a cork-like pop, lighter than snapping in.
+  // Undoing must never sound like a mistake — this is play, not an error.
+  snapOut: () => mix([
+    at(0, pop({ durationMs: 120, startHz: 380, endHz: 760, gain: 0.34 })),
+    at(20, woodBlock({ durationMs: 60, hz: 900, gain: 0.2 })),
+  ]),
+
+  // A piece set down without seating: a dull, soft landing. No verdict.
+  softDrop: () => mix([
+    at(0, woodBlock({ durationMs: 90, hz: 260, gain: 0.3 })),
+  ]),
+
   // Card lift: a light wood tap with a bright pop on top. Quick, not chirpy.
   flip: () => mix([
     at(0, woodBlock({ durationMs: 80, hz: 1100, gain: 0.34 })),
@@ -268,7 +298,18 @@ const CUES = {
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-const FILENAME = { flip: 'flip', match: 'match', noMatch: 'no-match', click: 'click', ihuu: 'ihuu', win: 'win' };
+const FILENAME = {
+  flip: 'flip',
+  match: 'match',
+  noMatch: 'no-match',
+  click: 'click',
+  ihuu: 'ihuu',
+  win: 'win',
+  lift: 'lift',
+  snapIn: 'snap-in',
+  snapOut: 'snap-out',
+  softDrop: 'soft-drop',
+};
 
 for (const [key, render] of Object.entries(CUES)) {
   const samples = normalize(render(), LEVEL[key]);

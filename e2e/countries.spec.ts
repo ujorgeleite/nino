@@ -10,6 +10,16 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
+/** Is a piece sitting in its socket? Detected by position — see shapefit.spec. */
+async function isSeated(page: Page, itemId: string): Promise<boolean> {
+  const piece = await page.getByTestId(`piece-${itemId}`).boundingBox();
+  const socket = await page.getByTestId(`socket-${itemId}`).boundingBox();
+  if (!piece || !socket) return false;
+  const pc = { x: piece.x + piece.width / 2, y: piece.y + piece.height / 2 };
+  const sc = { x: socket.x + socket.width / 2, y: socket.y + socket.height / 2 };
+  return Math.hypot(pc.x - sc.x, pc.y - sc.y) < socket.width / 3;
+}
+
 /**
  * Kept in step with constants/countries/index.ts. Duplicated deliberately:
  * the E2E suite must fail loudly if a country silently disappears from the
@@ -175,17 +185,11 @@ test.describe('Shape Fit', () => {
         }
         await page.mouse.up();
 
+        // Seated is a POSITION now: the piece travels into the socket and
+        // stays visible, rather than fading out while a copy is drawn there.
         await expect
-          .poll(
-            async () =>
-              Number(
-                await page
-                  .getByTestId(`piece-${item}`)
-                  .evaluate((el) => getComputedStyle(el).opacity),
-              ),
-            { timeout: 4000 },
-          )
-          .toBe(0);
+          .poll(() => isSeated(page, item), { timeout: 4000 })
+          .toBe(true);
       }
 
       await expect(page.getByTestId('win-overlay')).toBeVisible();

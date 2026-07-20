@@ -17,7 +17,7 @@ export const SNAP_RADIUS = 72;
 
 export type Point = { x: number; y: number };
 
-export type ShapeFitEvent = 'lift' | 'seated' | 'rejected' | null;
+export type ShapeFitEvent = 'lift' | 'seated' | 'rejected' | 'unseated' | null;
 
 export type ShapeFitGame = {
   /** Tray order — shuffled once so the puzzle is not the same every time. */
@@ -31,6 +31,14 @@ export type ShapeFitGame = {
    */
   tryDrop: (itemId: string, dropPoint: Point, sockets: Record<string, Point>) => boolean;
   liftPiece: (itemId: string) => void;
+  /**
+   * Takes a seated piece back out.
+   *
+   * Undoing is a first-class move, not an error path: a 2-year-old placing
+   * something and then wanting it back is play, and blocking it would be the
+   * first "no" the game ever says (CLAUDE.md rule 2).
+   */
+  unseatPiece: (itemId: string) => void;
   reset: () => void;
   lastEvent: ShapeFitEvent;
   /** The item id involved in the last event — lets the screen play its voice. */
@@ -70,16 +78,22 @@ export function useShapeFitNL(
 
   const liftPiece = useCallback(
     (itemId: string) => {
-      if (seated.has(itemId)) return;
       emit('lift', itemId);
+    },
+    [emit],
+  );
+
+  const unseatPiece = useCallback(
+    (itemId: string) => {
+      if (!seated.has(itemId)) return;
+      setSeatedIds((prev) => prev.filter((id) => id !== itemId));
+      emit('unseated', itemId);
     },
     [seated, emit],
   );
 
   const tryDrop = useCallback(
     (itemId: string, dropPoint: Point, sockets: Record<string, Point>): boolean => {
-      if (seated.has(itemId)) return false;
-
       const target = sockets[itemId];
       if (!target) {
         emit('rejected', itemId);
@@ -96,7 +110,7 @@ export function useShapeFitNL(
       emit('seated', itemId);
       return true;
     },
-    [seated, emit],
+    [emit],
   );
 
   const reset = useCallback(() => {
@@ -113,6 +127,7 @@ export function useShapeFitNL(
     isWon,
     tryDrop,
     liftPiece,
+    unseatPiece,
     reset,
     lastEvent,
     lastItemId,

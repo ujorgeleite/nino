@@ -9,7 +9,17 @@ module.exports = [
   ...expoConfig,
   prettierConfig,
   {
-    ignores: ['node_modules/**', '.expo/**', 'dist/**', 'assets/**'],
+    // `.agents/` is vendored: the Expo skills installed by `skills add` bring
+    // their own Node scripts, which are not this project's code to lint.
+    ignores: [
+      'node_modules/**',
+      '.expo/**',
+      'dist/**',
+      'assets/**',
+      '.agents/**',
+      'test-results/**',
+      'playwright-report/**',
+    ],
   },
   {
     rules: {

@@ -52,6 +52,28 @@ describe('useShapeFitNL', () => {
     expect(result.current.seated.has(first)).toBe(true);
   });
 
+  it('rejects a drop nearer a NEIGHBOUR, even inside its own radius', () => {
+    // THE BUG THIS PINS DOWN was fixed in the puzzle and left here.
+    //
+    // The snap radius is an absolute 78pt. Real boards put sockets closer than
+    // that — iPhone landscape is the tight case — so a piece dropped squarely
+    // on its neighbour was still inside its own socket's radius and seated,
+    // visibly jumping sideways to get there.
+    const tight: Record<string, Point> = {
+      [first]: { x: 200, y: 300 },
+      [second]: { x: 240, y: 300 },
+    };
+    const { result } = renderHook(() => useShapeFitNL());
+
+    let ok = true;
+    act(() => {
+      ok = result.current.tryDrop(first, tight[second], tight);
+    });
+
+    expect(ok).toBe(false);
+    expect(result.current.seated.has(first)).toBe(false);
+  });
+
   it('rejects a drop just outside the snap radius', () => {
     const { result } = renderHook(() => useShapeFitNL());
     const far = { x: SOCKETS[first].x + SNAP_RADIUS + 1, y: SOCKETS[first].y };

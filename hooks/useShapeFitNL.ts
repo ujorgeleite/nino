@@ -10,6 +10,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { COUNTRIES, type CountryItem } from '../constants/countries';
+import { nearestSocket } from '../utils/nearestSocket';
 import { shuffle } from '../utils/shuffle';
 
 /** A drop this close to a socket's centre counts as a hit (§7: ~72px). */
@@ -107,6 +108,18 @@ export function useShapeFitNL(
     (itemId: string, dropPoint: Point, sockets: Record<string, Point>): boolean => {
       const target = sockets[itemId];
       if (!target) {
+        emit('rejected', itemId);
+        return false;
+      }
+
+      // THE NEAREST SOCKET MUST BE THIS PIECE'S OWN.
+      //
+      // Radius alone is not enough, and the puzzle game learned this the hard
+      // way: the radius is an absolute number of points, so on a small board
+      // the neighbouring sockets sit inside it and a piece dropped squarely on
+      // the WRONG one was accepted, then visibly jumped sideways to seat. See
+      // the same rule and reasoning in hooks/usePuzzle.ts.
+      if (nearestSocket(dropPoint, sockets) !== itemId) {
         emit('rejected', itemId);
         return false;
       }

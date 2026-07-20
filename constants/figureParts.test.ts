@@ -6,7 +6,14 @@
 // mean two sockets accept the same drop; a tiny part means a piece nobody can
 // pick up.
 
-import { FIGURE_PARTS, MIN_PIECE_SHARE, isPuzzleSubject, partsFor } from './figureParts';
+import {
+  FIGURE_PARTS,
+  MIN_PIECE_SHARE,
+  PART_COLOURS,
+  isPuzzleSubject,
+  partsFor,
+} from './figureParts';
+import { VISIONS, distanceAs } from '../test-utils/colour';
 import { COUNTRIES } from './countries';
 import type { StaticPrimitiveKind } from '../components/scene/primitives';
 
@@ -186,4 +193,74 @@ describe('every part of a picture has its own shape', () => {
       expect(new Set(boxes).size).toBe(boxes.length);
     });
   }
+});
+
+describe('the colours a child has to tell apart', () => {
+  // THE BUG THIS PINS DOWN made the game unplayable for a colour-blind child
+  // while looking perfectly fine to everyone who tested it.
+  //
+  // Colour is this game's instruction, so a pair of piece colours that a
+  // dichromat cannot separate is not a polish issue — it is the child being
+  // asked to match two things that look identical to them. The original
+  // palette put a red piece 2.0 (CIEDE2000) from the YELLOW socket and 18.5
+  // from its own under protanopia.
+  //
+  // The floor below is what the current palette achieves, so any edit that
+  // makes any pair harder to tell apart — in any of the four visions, whether
+  // piece-to-piece or piece-to-wrong-socket — fails here.
+
+  const FLOOR = 22;
+
+  /** The socket floor for a colour, matching PuzzleFigure's SOCKET_SHADE. */
+  function socketFloor(colour: string): string {
+    const n = parseInt(colour.slice(1), 16);
+    const shade = (c: number) =>
+      Math.round(c * 0.9)
+        .toString(16)
+        .padStart(2, '0');
+    return `#${shade((n >> 16) & 255)}${shade((n >> 8) & 255)}${shade(n & 255)}`;
+  }
+
+  it.each(VISIONS)('%s: no two pieces look alike', (vision) => {
+    const tooClose: string[] = [];
+    for (let i = 0; i < PART_COLOURS.length; i++) {
+      for (let j = i + 1; j < PART_COLOURS.length; j++) {
+        const d = distanceAs(PART_COLOURS[i], PART_COLOURS[j], vision);
+        if (d < FLOOR) {
+          tooClose.push(`${PART_COLOURS[i]}~${PART_COLOURS[j]} = ${d.toFixed(1)}`);
+        }
+      }
+    }
+    expect(tooClose).toEqual([]);
+  });
+
+  it.each(VISIONS)('%s: no piece resembles the WRONG socket', (vision) => {
+    // The one that actually broke: a piece has to be nearer its own hole than
+    // anyone else's, or matching by colour leads the child to the wrong place.
+    const confusable: string[] = [];
+    for (const piece of PART_COLOURS) {
+      for (const other of PART_COLOURS) {
+        if (other === piece) continue;
+        const d = distanceAs(piece, socketFloor(other), vision);
+        if (d < FLOOR) confusable.push(`${piece} → socket ${other} = ${d.toFixed(1)}`);
+      }
+    }
+    expect(confusable).toEqual([]);
+  });
+
+  it.each(VISIONS)('%s: every piece is nearest to its OWN socket', (vision) => {
+    const wrong: string[] = [];
+    for (const piece of PART_COLOURS) {
+      const own = distanceAs(piece, socketFloor(piece), vision);
+      const nearestOther = Math.min(
+        ...PART_COLOURS.filter((c) => c !== piece).map((c) =>
+          distanceAs(piece, socketFloor(c), vision),
+        ),
+      );
+      if (own >= nearestOther) {
+        wrong.push(`${piece}: own ${own.toFixed(1)} vs other ${nearestOther.toFixed(1)}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
 });

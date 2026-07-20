@@ -13,6 +13,7 @@
 // Toddler UX: no timer, no lives, no score, and a wrong drop costs nothing.
 
 import { useCallback, useMemo, useState } from 'react';
+import { nearestSocket } from '../utils/nearestSocket';
 import { shuffle } from '../utils/shuffle';
 
 /** A drop this close to a cell's centre counts as a fit. */
@@ -57,33 +58,6 @@ function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-/**
- * The socket a drop lands closest to, or null if there are none.
- *
- * A piece is placed only when the nearest socket is ITS OWN. Checking only
- * that the drop was within the snap radius of the right socket was not enough:
- * the radius is an absolute number of points, and on iPhone landscape the
- * board is small enough that two sockets sit 42pt apart — well inside a 78pt
- * radius — so a piece dropped squarely on the WRONG socket was accepted, and
- * the picture assembled itself wrong.
- *
- * Nearest-wins has no such dependence on how large the board happens to be.
- */
-export function nearestSocket(
-  point: Point,
-  targets: Record<string, Point>,
-): string | null {
-  let best: string | null = null;
-  let bestDistance = Infinity;
-  for (const [id, target] of Object.entries(targets)) {
-    const d = distance(point, target);
-    if (d < bestDistance) {
-      bestDistance = d;
-      best = id;
-    }
-  }
-  return best;
-}
 
 /**
  * @param partIds the ids of the parts this country's picture comes apart into

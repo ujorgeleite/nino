@@ -439,16 +439,30 @@ export const FIGURE_PARTS: Record<string, readonly Omit<FigurePart, 'colour'>[]>
 /**
  * The colours a picture's parts are painted, in order.
  *
- * Chosen to be told apart by a 2-year-old and by anyone with the commonest
- * colour blindness: they differ in lightness as well as hue, so no pair relies
- * on hue alone to be distinguishable.
+ * CHOSEN BY MEASUREMENT, NOT BY EYE, and the difference mattered.
+ *
+ * Colour is this game's instruction, so "these are obviously different" is a
+ * claim about whether the game is playable at all — and for the ~8% of boys
+ * with a red-green deficiency, a palette that looks vivid and distinct to the
+ * author can be two shades of one thing. The first palette here was picked by
+ * eye and measured catastrophically: under protanopia a red piece sat 2.0
+ * (CIEDE2000) from the YELLOW socket and 18.5 from its own. The child would
+ * have been asked to match colours they cannot tell apart.
+ *
+ * These are the output of a search that maximised the worst-case separation
+ * across normal, protan, deutan and tritan vision — for every piece against
+ * every other piece AND against every other piece's socket — then softened
+ * under a hard floor. Hand-tuning them afterwards for prettiness dropped the
+ * worst case from 24 to 12, so they are left as the search returned them.
+ *
+ * figureParts.test.ts pins the floor. Do not adjust these by eye.
  */
 export const PART_COLOURS = [
-  '#E4572E', // vermilion
-  '#3A86C8', // blue
-  '#F4B942', // yellow
-  '#4C9F70', // green
-  '#8368C9', // violet
+  '#E21266', // raspberry
+  '#73EDE3', // mint
+  '#1412CA', // deep blue
+  '#EDEB0D', // yellow
+  '#A068F3', // violet
 ] as const;
 
 /**

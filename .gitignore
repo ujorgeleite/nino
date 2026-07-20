@@ -44,3 +44,11 @@ yarn-error.*
 /test-results/
 /playwright-report/
 /dist/
+
+# Expo skills, vendored by `npx skills add expo/skills`. The symlinks under
+# .claude/skills point in here.
+.agents/
+
+# Symlinks into .agents/, recreated by `npx skills add expo/skills`.
+.claude/skills/expo-*
+.claude/skills/eas-*

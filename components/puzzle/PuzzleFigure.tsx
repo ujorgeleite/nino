@@ -63,16 +63,20 @@ type Props = {
 const GHOST_OPACITY = 0.17;
 
 /**
- * The floor of a carved socket: the piece's own colour, in shadow.
+ * How much a socket's floor is darkened below its piece's colour.
  *
- * Washing the colour over shadowed timber was tried first and came out muddy —
- * red read as brown, blue as grey — which destroys the one cue the child is
- * meant to use. Darkening the colour itself keeps the hue unmistakable while
- * still reading as the bottom of a hole rather than the surface of the board.
+ * Barely, and that is deliberate. Darkening was once 0.62, which looked
+ * convincingly recessed and quietly broke the game: a deep shadow collapses
+ * hues together, so under protanopia a red piece was nearer the YELLOW hole
+ * than its own. The depth is carried by the inner shadow and lit rim below
+ * instead, which cost nothing in hue. figureParts.test.ts pins the limit.
  */
+const SOCKET_SHADE = 0.9;
+
+/** The floor of a carved socket: the piece's own colour, just in shadow. */
 function recessFloor(colour: string): string {
   const n = parseInt(colour.slice(1), 16);
-  const shade = (c: number) => Math.round(c * 0.52);
+  const shade = (c: number) => Math.round(c * SOCKET_SHADE);
   const [r, g, b] = [shade((n >> 16) & 255), shade((n >> 8) & 255), shade(n & 255)];
   return `rgb(${r}, ${g}, ${b})`;
 }
@@ -165,15 +169,18 @@ export function PartSocket({
   const h = (bh / 100) * size;
   const clipId = `socket-${part.id}`;
 
-  // CARVED, NOT DRAWN ON.
+  // CARVED, NOT DRAWN ON — and as lightly as will still read as carved.
   //
-  // A flat tinted silhouette read as decoration — a shape painted on the
-  // board rather than a hole in it — so it was not obvious that anything was
-  // meant to go inside. This builds a recess the way a wooden puzzle tray
-  // has one: the outline is redrawn twice inside its own clip, offset down
-  // and right for the shadowed wall the light does not reach, and up and
-  // left for the lit rim on the far side. Two extra paths, no filters, and
-  // the depth is unmistakable.
+  // A flat tinted silhouette looked like decoration painted on the board
+  // rather than a hole in it, so it was not obvious anything went inside.
+  // This builds a recess the way a wooden tray has one: the outline is
+  // redrawn twice inside its own clip, offset down-right for the wall the
+  // light does not reach and up-left for the lit rim opposite. Two extra
+  // paths, no filters.
+  //
+  // The first version used heavy strokes and a thick lip, and the board came
+  // out busy — every socket shouted. The shading carries the depth on its
+  // own, so the weights are the lowest that still read as a hole.
   return (
     <Svg width={w} height={h} viewBox={`${bx} ${by} ${bw} ${bh}`}>
       <Defs>
@@ -190,28 +197,30 @@ export function PartSocket({
       <G clipPath={`url(#${clipId})`}>
         <Path
           d={part.path}
-          transform="translate(2.2, 2.8)"
+          transform="translate(1.6, 2)"
           fill="none"
-          stroke="rgba(28, 18, 12, 0.42)"
-          strokeWidth={5}
+          stroke="rgba(28, 18, 12, 0.3)"
+          strokeWidth={3.4}
           strokeLinejoin="round"
         />
         <Path
           d={part.path}
-          transform="translate(-2, -2.4)"
+          transform="translate(-1.4, -1.6)"
           fill="none"
-          stroke="rgba(255, 255, 255, 0.34)"
-          strokeWidth={4}
+          stroke="rgba(255, 255, 255, 0.22)"
+          strokeWidth={2.6}
           strokeLinejoin="round"
         />
       </G>
 
-      {/* The lip of the recess, crisp over both. */}
+      {/* The lip of the recess. Thin: the depth is already carried by the
+          shading, and a heavy outline turned every socket into a sticker. */}
       <Path
         d={part.path}
         fill="none"
         stroke={INK}
-        strokeWidth={2.8}
+        strokeWidth={1.8}
+        strokeOpacity={0.75}
         strokeLinejoin="round"
       />
     </Svg>

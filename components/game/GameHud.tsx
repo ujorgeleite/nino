@@ -52,7 +52,13 @@ export function GameHud({ onRestart, center, mascotReaction = null, reactionSeq 
         <HudButton
           icon={muted ? 'muted' : 'sound'}
           accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
-          onPress={toggleMute}
+          onPress={() => {
+            // Muting removes the sound channel, so without this the child taps
+            // and gets NOTHING back — the one button in the HUD that has to
+            // lean on haptics to answer at all (rule 4).
+            feedback('tap');
+            toggleMute();
+          }}
         />
       </View>
 

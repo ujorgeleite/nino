@@ -247,7 +247,18 @@ export default function PuzzleCountryRoute() {
   }, [country.code, isComplete, router]);
 
   return (
-    <View style={styles.root}>
+    // NO PADDING HERE, and the E2E suite cannot enforce it.
+    //
+    // The scene layers below are absolutely positioned. In Yoga — i.e. on the
+    // actual device — padding on their parent offsets them, so padding here
+    // insets the landscape and leaves a frame of app background around the
+    // whole game. In CSS it does not: an absolutely positioned element is laid
+    // out against the padding BOX, and padding does not push it.
+    //
+    // The Playwright suite drives the web export, so it renders this correctly
+    // either way and cannot see the mistake. Padding belongs to the play layer
+    // alone; check it by eye on device, not in CI.
+    <View style={styles.screen}>
       {/* The country in full colour, revealed by the win. */}
       {isWon ? (
         <View style={StyleSheet.absoluteFill}>
@@ -260,7 +271,7 @@ export default function PuzzleCountryRoute() {
         <CountryScene country={backdrop} mode={mode} />
       </Animated.View>
 
-      <View style={styles.root}>
+      <View style={styles.play}>
         <GameHud onRestart={reset} mascotReaction={reaction} reactionSeq={eventSeq} />
 
         <View style={styles.layer}>
@@ -281,6 +292,7 @@ export default function PuzzleCountryRoute() {
                 placed={placed}
                 highlighted={preview}
                 size={boardSize}
+                mode={mode}
                 onCellMeasured={onCellMeasured}
               />
             </Animated.View>
@@ -356,7 +368,8 @@ function TraySlot({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, padding: SPACING.s4, gap: SPACING.s3 },
+  screen: { flex: 1 },
+  play: { flex: 1, padding: SPACING.s4, gap: SPACING.s3 },
   layer: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   boardCentre: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   boardWrap: { alignItems: 'center', justifyContent: 'center' },

@@ -8,6 +8,7 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
+import Glyph from './Glyph';
 import Mascot from '../mascot/Mascot';
 import { fireWinHaptics } from '../../hooks/useFeedback';
 import { useSound } from '../../hooks/useSound';
@@ -69,6 +70,10 @@ export function WinOverlay({
         hitSlop={SPACING.s4}
         style={({ pressed }) => [styles.again, pressed && styles.pressed]}
       >
+        {/* THE ICON IS THE BUTTON, the word is for whoever is sitting next to
+            the child. This is the single control that continues the game, and
+            rule 1 says a child who cannot read must never depend on text. */}
+        <Glyph name={actionLabel === 'Play again' ? 'restart' : 'play'} size={40} color={COLORS.paper} />
         <Text style={styles.againText} allowFontScaling={false}>
           {actionLabel}
         </Text>
@@ -102,6 +107,9 @@ const styles = StyleSheet.create({
     color: COLORS.sun,
   },
   again: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.s3,
     minHeight: LAYOUT.touchComfortable,
     justifyContent: 'center',
     backgroundColor: COLORS.actionPrimary,

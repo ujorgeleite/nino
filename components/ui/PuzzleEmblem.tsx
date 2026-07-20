@@ -1,20 +1,15 @@
 // components/ui/PuzzleEmblem.tsx
-// The Puzzle tile's emblem: the country's picture with two holes still open.
+// The Puzzle tile's emblem: the country's picture, half assembled.
 //
-// It shows the actual board that game presents — the artwork, plus shaped
-// sockets. A child sees both WHAT they will make and THAT pieces go into
-// shapes, which is the whole mechanic said without a word.
+// It shows the actual board that game presents — the drawing, with some parts
+// in place and some still empty sockets. A child sees both WHAT they will make
+// and THAT it comes apart, which is the whole mechanic said without a word.
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import PuzzleFigure from '../puzzle/PuzzleFigure';
-import { PUZZLE_SHAPES, shapePath } from '../../constants/puzzleShapes';
+import PuzzleFigure, { PartSocket, partsForCountry } from '../puzzle/PuzzleFigure';
 import { COLORS, RADII } from '../../constants/nino';
 import type { CountryData } from '../../constants/countries';
-
-/** Which holes read as still empty. Two gaps say "unfinished" without clutter. */
-const OPEN = new Set(['circle', 'star']);
 
 type Props = {
   size?: number;
@@ -22,28 +17,35 @@ type Props = {
 };
 
 export function PuzzleEmblem({ size = 96, country }: Props) {
+  const parts = partsForCountry(country);
+
   return (
     <View style={[styles.wrap, { width: size, height: size }]}>
-      <PuzzleFigure country={country} size={size} />
+      {/* The country's sky, so the emblem reads as the place too. */}
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: country.palette.skyThere[1] },
+        ]}
+      />
 
-      {PUZZLE_SHAPES.map((shape) => {
-        const s = shape.size * size;
-        const left = shape.cx * size - s / 2;
-        const top = shape.cy * size - s / 2;
+      {parts.map((part, i) => {
+        const [bx, by, bw, bh] = part.box;
+        const style = {
+          position: 'absolute' as const,
+          left: (bx / 100) * size,
+          top: (by / 100) * size,
+          width: (bw / 100) * size,
+          height: (bh / 100) * size,
+        };
+        // The last part is left out, so the tile reads as unfinished.
+        const missing = i === parts.length - 1;
         return (
-          <View key={shape.id} style={[styles.hole, { width: s, height: s, left, top }]}>
-            {OPEN.has(shape.id) ? (
-              <Svg width={s} height={s}>
-                <Path
-                  d={shapePath(shape.id, s)}
-                  fill="rgba(38, 25, 15, 0.55)"
-                  stroke={COLORS.ninoInk}
-                  strokeWidth={2.5}
-                  strokeLinejoin="round"
-                />
-              </Svg>
+          <View key={part.id} style={style}>
+            {missing ? (
+              <PartSocket part={part} size={size} />
             ) : (
-              <PuzzleFigure country={country} size={size} shape={shape} />
+              <PuzzleFigure country={country} size={size} part={part} />
             )}
           </View>
         );
@@ -57,9 +59,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: RADII.sm,
+    borderWidth: 2,
+    borderColor: COLORS.ninoInk,
     overflow: 'hidden',
   },
-  hole: { position: 'absolute' },
 });
 
 export default PuzzleEmblem;

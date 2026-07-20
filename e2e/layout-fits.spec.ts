@@ -13,8 +13,12 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-/** One piece per shape. Shape is what tells a child where it goes. */
-const CELLS = ['circle', 'square', 'triangle', 'star'];
+/** Parts differ per country, so ids are read from the live DOM. */
+async function partIds(page: Page): Promise<string[]> {
+  return page.$$eval('[data-testid^="piece-"]', (nodes) =>
+    nodes.map((n) => (n.getAttribute('data-testid') || '').replace('piece-', '')),
+  );
+}
 const COUNTRIES = ['nl', 'de', 'dk', 'ch', 'it'] as const;
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -36,7 +40,7 @@ test.describe('puzzle layout fits the screen', () => {
 
       const board = await boxOf(page, 'puzzle-board');
 
-      for (const id of CELLS) {
+      for (const id of await partIds(page)) {
         const piece = await boxOf(page, `piece-${id}`);
         expect(
           overlaps(piece, board),
@@ -49,7 +53,7 @@ test.describe('puzzle layout fits the screen', () => {
       await page.goto(`/games/puzzle/${code}`);
       await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 
-      for (const id of CELLS) {
+      for (const id of await partIds(page)) {
         const box = await boxOf(page, `piece-${id}`);
         expect(box.x, `${code}/${id} off the left`).toBeGreaterThanOrEqual(-1);
         expect(box.y, `${code}/${id} off the top`).toBeGreaterThanOrEqual(-1);
@@ -69,11 +73,12 @@ test.describe('puzzle layout fits the screen', () => {
       await page.goto(`/games/puzzle/${code}`);
       await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 
-      const boxes = await Promise.all(CELLS.map((id) => boxOf(page, `piece-${id}`)));
+      const ids = await partIds(page);
+      const boxes = await Promise.all(ids.map((id) => boxOf(page, `piece-${id}`)));
       const collisions: string[] = [];
       for (let i = 0; i < boxes.length; i++) {
         for (let j = i + 1; j < boxes.length; j++) {
-          if (overlaps(boxes[i], boxes[j])) collisions.push(`${CELLS[i]}/${CELLS[j]}`);
+          if (overlaps(boxes[i], boxes[j])) collisions.push(`${ids[i]}/${ids[j]}`);
         }
       }
       expect(collisions).toEqual([]);

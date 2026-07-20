@@ -13,7 +13,6 @@
 // Toddler UX: no timer, no lives, no score, and a wrong drop costs nothing.
 
 import { useCallback, useMemo, useState } from 'react';
-import { PUZZLE_SHAPES } from '../constants/puzzleShapes';
 import { shuffle } from '../utils/shuffle';
 
 /** A drop this close to a cell's centre counts as a fit. */
@@ -52,16 +51,22 @@ export type PuzzleGame = {
   round: number;
 };
 
-function buildCells(): PuzzleCell[] {
-  return PUZZLE_SHAPES.map((s) => ({ id: s.id }));
-}
+
 
 function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export function usePuzzle(): PuzzleGame {
-  const cells = useMemo(() => buildCells(), []);
+/**
+ * @param partIds the ids of the parts this country's picture comes apart into
+ */
+export function usePuzzle(partIds: readonly string[]): PuzzleGame {
+  // Joined so the identity is stable across renders with the same parts.
+  const key = partIds.join(',');
+  const cells = useMemo(
+    () => key.split(',').filter(Boolean).map((id) => ({ id })),
+    [key],
+  );
 
   const [trayOrder, setTrayOrder] = useState<string[]>(() =>
     shuffle(cells.map((c) => c.id)),

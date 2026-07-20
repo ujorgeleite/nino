@@ -7,8 +7,15 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-/** One piece per shape. Shape is what tells a child where it goes. */
-const CELLS = ['circle', 'square', 'triangle', 'star'];
+/**
+ * Parts differ per country — a castle has four masses, a mountain three — so
+ * the ids are read from the live DOM rather than hardcoded.
+ */
+async function partIds(page: Page): Promise<string[]> {
+  return page.$$eval('[data-testid^="piece-"]', (nodes) =>
+    nodes.map((n) => (n.getAttribute('data-testid') || '').replace('piece-', '')),
+  );
+}
 
 async function openPuzzle(page: Page, code = 'nl') {
   await page.goto(`/games/puzzle/${code}`);
@@ -47,9 +54,11 @@ async function drag(page: Page, id: string, to: { x: number; y: number }) {
 }
 
 test.describe('Puzzle', () => {
-  test('lays out a board and four shaped pieces', async ({ page }) => {
+  test('lays out a board and one piece per part of the drawing', async ({ page }) => {
     await openPuzzle(page);
-    for (const id of CELLS) {
+    const ids = await partIds(page);
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    for (const id of ids) {
       await expect(page.getByTestId(`cell-${id}`)).toBeVisible();
       await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
     }
@@ -57,7 +66,7 @@ test.describe('Puzzle', () => {
 
   test('every piece is a legal tap target and on screen', async ({ page, viewport }) => {
     await openPuzzle(page);
-    for (const id of CELLS) {
+    for (const id of await partIds(page)) {
       const box = await page.getByTestId(`piece-${id}`).boundingBox();
       expect(box).not.toBeNull();
       // CLAUDE.md rule 3.
@@ -69,32 +78,38 @@ test.describe('Puzzle', () => {
     }
   });
 
-  test('dragging a piece onto its own cell places it', async ({ page }) => {
+  test('dragging a piece onto its own place puts it there', async ({ page }) => {
     await openPuzzle(page);
-    expect(await isPlaced(page, 'circle')).toBe(false);
+    const [first] = await partIds(page);
+    expect(await isPlaced(page, first)).toBe(false);
 
-    await drag(page, 'circle', await centre(page, 'cell-circle'));
+    await drag(page, first, await centre(page, `cell-${first}`));
 
-    expect(await isPlaced(page, 'circle')).toBe(true);
+    expect(await isPlaced(page, first)).toBe(true);
   });
 
-  test('dropping on the WRONG cell returns the piece', async ({ page }) => {
+  test('a piece only fits its OWN place', async ({ page }) => {
+    // The whole design: a part's outline follows the drawing, so it belongs in
+    // exactly one socket.
     await openPuzzle(page);
+    const ids = await partIds(page);
+    const [first] = ids;
+    const other = ids[ids.length - 1];
 
-    await drag(page, 'circle', await centre(page, 'cell-star'));
+    await drag(page, first, await centre(page, `cell-${other}`));
 
-    expect(await isPlaced(page, 'circle')).toBe(false);
-    expect(await isPlaced(page, 'star')).toBe(false);
+    expect(await isPlaced(page, first)).toBe(false);
+    expect(await isPlaced(page, other)).toBe(false);
 
     // And the same piece still works afterwards — a miss costs nothing.
-    await drag(page, 'circle', await centre(page, 'cell-circle'));
-    expect(await isPlaced(page, 'circle')).toBe(true);
+    await drag(page, first, await centre(page, `cell-${first}`));
+    expect(await isPlaced(page, first)).toBe(true);
   });
 
   test('assembles the picture and wins', async ({ page }) => {
     await openPuzzle(page);
 
-    for (const id of CELLS) {
+    for (const id of await partIds(page)) {
       await drag(page, id, await centre(page, `cell-${id}`));
     }
 
@@ -107,7 +122,7 @@ test.describe('Puzzle', () => {
     // The old button replayed the same board, which for a child who just
     // succeeded is the least interesting possible next thing.
     await openPuzzle(page, 'nl');
-    for (const id of CELLS) {
+    for (const id of await partIds(page)) {
       await drag(page, id, await centre(page, `cell-${id}`));
     }
     await expect(page.getByTestId('win-overlay')).toBeVisible();
@@ -125,15 +140,16 @@ test.describe('Puzzle', () => {
     // against the old one sent every piece flying diagonally to the wrong
     // place. A fresh board must simply BE.
     await openPuzzle(page);
-    await drag(page, 'circle', await centre(page, 'cell-circle'));
-    expect(await isPlaced(page, 'circle')).toBe(true);
+    const ids = await partIds(page);
+    await drag(page, ids[0], await centre(page, `cell-${ids[0]}`));
+    expect(await isPlaced(page, ids[0])).toBe(true);
 
     await page.getByRole('button', { name: 'Start again' }).click();
     // Deliberately short: if pieces were animating home, they would still be
     // in flight here and nowhere near their slots.
     await page.waitForTimeout(120);
 
-    for (const id of CELLS) {
+    for (const id of ids) {
       expect(await isPlaced(page, id), `${id} should be home already`).toBe(false);
       const box = await page.getByTestId(`piece-${id}`).boundingBox();
       expect(box, `${id} vanished`).not.toBeNull();

@@ -30,7 +30,8 @@ import PuzzleFigure from './PuzzleFigure';
 import { useFloat } from '../../hooks/useFloat';
 import { contactShadow, castShadow, LIFT_HEIGHT, LIFT_SCALE } from '../../constants/depth';
 import type { CountryData } from '../../constants/countries';
-import type { PuzzleShape } from '../../constants/puzzleShapes';
+import type { FigurePart } from '../../constants/figureParts';
+import { LAYOUT } from '../../constants/nino';
 
 const RETURN_SPRING = { damping: 22, stiffness: 420, overshootClamping: true } as const;
 const SEAT_SPRING = { damping: 16, stiffness: 340 } as const;
@@ -42,9 +43,17 @@ export type PlaceResult = {
 
 type Props = {
   country: CountryData;
-  shape: PuzzleShape;
-  /** The board's size — the piece is cut from a figure of these proportions. */
+  part: FigurePart;
+  /** The board's size — the piece is cut at exactly this scale. */
   boardSize: number;
+  /**
+   * How large the piece sits in the tray, as a fraction of its true size.
+   *
+   * Waiting pieces are drawn smaller than their sockets so the picture can
+   * have the screen, and grow to their real size as they are carried — which
+   * is also the moment the child needs the size to be truthful.
+   */
+  restScale?: number;
   placed: boolean;
   resolvePlacedOffset?: () => { x: number; y: number } | null;
   /** Bumped on reset so the piece JUMPS home instead of flying across. */
@@ -58,8 +67,9 @@ type Props = {
 
 export function PuzzlePiece({
   country,
-  shape,
+  part,
   boardSize,
+  restScale = 1,
   placed,
   resolvePlacedOffset,
   round = 0,
@@ -76,7 +86,7 @@ export function PuzzlePiece({
   const elevation = useSharedValue(0);
   const held = useSharedValue(false);
 
-  const float = useFloat(shape.id, !placed);
+  const float = useFloat(part.id, !placed);
 
   const settle = (target: { x: number; y: number } | null, instant = false) => {
     'worklet';
@@ -137,9 +147,24 @@ export function PuzzlePiece({
     opacity: placed && !held.value ? 0 : 1,
   }));
 
-  // The piece is exactly the shape's silhouette, cut from a figure of the
-  // board's proportions — so it matches its hole at the same scale.
-  const size = shape.size * boardSize;
+  // The artwork is drawn at exactly the board's scale, so a piece and its
+  // socket are the same size and the match is literal.
+  const [, , bw, bh] = part.box;
+  const artW = (bw / 100) * boardSize;
+  const artH = (bh / 100) * boardSize;
+
+  // THE TOUCH AREA IS SIZED SEPARATELY, AND ITS FLOOR IS ABSOLUTE.
+  //
+  // A part can be small — a castle's turret is a fifth of the drawing's width,
+  // which came to 78pt on an iPad and failed rule 3. An earlier version used a
+  // fraction of the board, but 90pt is an absolute number about fingers, not a
+  // proportion of anything on screen.
+  //
+  // The artwork is NOT grown to match: that would break the promise that a
+  // piece is exactly the size of its socket. Only the transparent hit box grows.
+  // Measured at REST, since that is the size a waiting finger has to hit.
+  const touchW = Math.max(artW * restScale, LAYOUT.touchMin);
+  const touchH = Math.max(artH * restScale, LAYOUT.touchMin);
 
   // Solid cannot be used here: it draws a rounded RECTANGLE, and the whole
   // point is that this piece is a circle, a star or a triangle. The depth is
@@ -150,7 +175,9 @@ export function PuzzlePiece({
       transform: [
         { translateY: float.offsetY.value - e * LIFT_HEIGHT },
         { rotate: `${float.tilt.value}deg` },
-        { scale: 1 + e * LIFT_SCALE },
+        // Rest size while waiting, true size while carried: by the time the
+        // piece is over its socket the two are literally the same size.
+        { scale: restScale + e * (1 - restScale) + e * LIFT_SCALE },
       ],
     };
   });
@@ -158,13 +185,13 @@ export function PuzzlePiece({
   return (
     <GestureDetector gesture={pan}>
       <Animated.View
-        style={[styles.wrap, { width: size, height: size }, carryStyle]}
+        style={[styles.wrap, { width: touchW, height: touchH }, carryStyle]}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         testID={testID}
       >
         <Animated.View style={[castShadow(0.6), contactShadow(0.2), liftStyle]}>
-          <PuzzleFigure country={country} size={boardSize} shape={shape} />
+          <PuzzleFigure country={country} size={boardSize} part={part} outlined />
         </Animated.View>
       </Animated.View>
     </GestureDetector>

@@ -8,7 +8,7 @@
 // window coordinates, the same space the pan gesture reports — and owns the
 // drop preview that makes a cell glow as a piece approaches.
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import CountryScene from '../../../components/scene/CountryScene';
@@ -17,7 +17,7 @@ import PuzzleBoard from '../../../components/puzzle/PuzzleBoard';
 import PuzzlePiece, { type PlaceResult } from '../../../components/puzzle/PuzzlePiece';
 import WinOverlay from '../../../components/ui/WinOverlay';
 import { usePuzzle, PUZZLE_SNAP_RADIUS, type Point } from '../../../hooks/usePuzzle';
-import { PUZZLE_SHAPES, shapeById } from '../../../constants/puzzleShapes';
+import { partsForCountry } from '../../../components/puzzle/PuzzleFigure';
 import { useMode } from '../../../hooks/useMode';
 import { useMusic } from '../../../hooks/useMusic';
 import { useFeedback } from '../../../hooks/useFeedback';
@@ -26,9 +26,13 @@ import { nextChallenge } from '../../../utils/nextChallenge';
 import { COUNTRIES, getCountry, DEFAULT_COUNTRY } from '../../../constants/countries';
 import { LAYOUT, SPACING } from '../../../constants/nino';
 
-// The cut lives in constants/puzzleShapes.ts: four holes, each an
-// unmistakably different shape. A circle has exactly one place it can go, and
-// a 2-year-old can see which before they try.
+// The cut lives in constants/figureParts.ts: each drawing comes apart along
+// its own anatomy — a roof, a turret, a mountain peak. A part's outline
+// follows the subject, so it only fits its own place and a child can see that
+// from the shape.
+
+/** How long the country's scene is shown before the neutral takes over. */
+const INTRO_MS = 1500;
 
 export default function PuzzleCountryRoute() {
   const { country: code } = useLocalSearchParams<{ country: string }>();
@@ -41,6 +45,12 @@ export default function PuzzleCountryRoute() {
   const { isComplete, markComplete } = useProgress();
   useMusic(country.code, 'puzzle', mode);
 
+  // How this country's picture comes apart. Data, from the drawing itself.
+  //
+  // Memoized on the country: `partsForCountry` returns a fresh array each call,
+  // and a new array identity every render defeats every callback below it.
+  const parts = useMemo(() => partsForCountry(country), [country]);
+
   const {
     trayOrder,
     placed,
@@ -52,11 +62,29 @@ export default function PuzzleCountryRoute() {
     lastEvent,
     eventSeq,
     round,
-  } = usePuzzle();
+  } = usePuzzle(parts.map((p) => p.id));
 
   const targets = useRef<Record<string, Point>>({});
   const homes = useRef<Record<string, Point>>({});
   const [preview, setPreview] = useState<string | null>(null);
+
+  // THE OPENING REVEAL.
+  //
+  // The country's own scene shows first, so the child sees where this picture
+  // is, and then gives way to the neutral the game is played against. Short
+  // enough that it never feels like waiting.
+  // Derived from which round has finished its reveal, rather than reset by an
+  // effect: setting state synchronously in an effect costs a second render of
+  // the whole board on every restart, and this screen is the one place where
+  // that is most visible.
+  const [revealed, setRevealed] = useState<string | null>(null);
+  const introKey = `${country.code}:${round}`;
+  const intro = revealed !== introKey;
+
+  useEffect(() => {
+    const timer = setTimeout(() => setRevealed(introKey), INTRO_MS);
+    return () => clearTimeout(timer);
+  }, [introKey]);
 
   const reaction = lastEvent === 'placed' ? 'celebrate' : null;
 
@@ -76,47 +104,54 @@ export default function PuzzleCountryRoute() {
     if (isWon) markComplete(`puzzle-${country.code}`);
   }, [isWon, country.code, markComplete]);
 
-  // LAYOUT MUST FIT, not merely look right on the widest screen.
+  // THE PICTURE GETS THE SCREEN.
   //
-  // Sizing the board from the short side alone overflowed iPhone landscape by
-  // ~116pt: the tray ended up underneath the board, so a touch aimed at a
-  // piece hit the board instead and the game became unwinnable. The bug read
-  // as flakiness — different countries failed on different runs — because it
-  // depended on where each shuffled piece happened to land.
+  // Earlier versions stacked the board over a tray, which cost the picture
+  // most of the height and left it a small square in the middle. Since the app
+  // is landscape-only (rule 6), the tray can ALWAYS sit beside the board and
+  // spend width, which a landscape screen has to spare. The board then takes
+  // the full height it can get.
   //
-  // So the board takes what is LEFT after everything else has its space.
-  const shortSide = Math.min(width, height);
-
-  // The tray row is as tall as the BIGGEST shape, since pieces are cut at the
-  // board's scale and the star is wider than the square.
-  const largestShare = Math.max(...PUZZLE_SHAPES.map((s) => s.size));
-
-  // LAYOUT MUST FIT, and on a wide-short screen stacking cannot.
-  //
-  // iPhone landscape is 844×390. Stacking board over tray needs
-  // ~(board + tray + HUD + padding) of height, which does not exist there —
-  // the tray ended up UNDER the board and its pieces became untouchable.
-  // Shrinking the board is not the fix either: it hits the 180pt floor and
-  // overflows anyway.
-  //
-  // So on a wide-short screen the tray moves BESIDE the board, using the width
-  // that screen has in abundance. The geometry test asserts the result rather
-  // than the rule.
-  const sideBySide = width / height > 1.7;
-
-  const verticalChrome =
-    SPACING.s5 * 2 + LAYOUT.touchMin + SPACING.s4 * (sideBySide ? 1 : 2) +
-    (sideBySide ? 0 : SPACING.s3);
-
   // Slack matters: an exact fit leaves nothing for rounding, and an earlier
   // attempt landed on precisely the viewport height.
-  const availableHeight = (height - verticalChrome) * 0.94;
+  const verticalChrome = SPACING.s5 * 2 + LAYOUT.touchMin + SPACING.s4;
+  const availableHeight = (height - verticalChrome) * 0.96;
 
-  const boardSize = sideBySide
-    ? Math.min(availableHeight, width * 0.42)
-    : Math.min(availableHeight / (1 + largestShare), width * 0.46, shortSide * 0.78);
+  // THE TRAY IS A GRID, not a column, because a column does not always fit.
+  //
+  // iPhone landscape is 390 tall; after the HUD that leaves ~234 for play, and
+  // four pieces at the 90pt floor need 360. A single column silently pushed
+  // the last pieces off the bottom of the screen. So the tray takes as many
+  // rows as actually fit and adds columns for the rest — spending width, which
+  // a landscape screen has, instead of height, which it does not.
+  const trayRows = Math.max(
+    1,
+    Math.min(parts.length, Math.floor(availableHeight / (LAYOUT.touchMin + SPACING.s3))),
+  );
+  const trayCols = Math.ceil(parts.length / trayRows);
+  const trayRow = Math.min(availableHeight / trayRows - SPACING.s3, width * 0.18);
+  const trayWidth = trayRow * trayCols + SPACING.s3 * (trayCols - 1);
 
-  const trayExtent = boardSize * largestShare;
+  const boardSize = Math.min(availableHeight, width - trayWidth - SPACING.s5 * 3);
+
+  // WAITING PIECES ARE DRAWN SMALLER THAN THEIR SOCKETS.
+  //
+  // At full board scale a roof is most of the board wide, and a tray holding
+  // four of those would take the width back from the picture. Each piece is
+  // instead scaled to fill its own tray row, and grows to its true size while
+  // it is carried — so the sizes agree at the only moment that matters, when
+  // the piece is over the socket.
+  //
+  // Scaled per piece rather than by one shared factor: a shared factor sized
+  // for the biggest part left the smallest ones as specks.
+  const restScaleFor = useCallback(
+    (part: (typeof parts)[number]) => {
+      const largest = (Math.max(part.box[2], part.box[3]) / 100) * boardSize;
+      // Never magnify: a piece bigger than its socket would be a lie.
+      return Math.min(1, trayRow / Math.max(largest, 1));
+    },
+    [boardSize, trayRow],
+  );
 
   const onCellMeasured = useCallback((id: string, centre: Point) => {
     targets.current[id] = centre;
@@ -177,7 +212,7 @@ export default function PuzzleCountryRoute() {
       <View style={styles.root}>
         <GameHud onRestart={reset} mascotReaction={reaction} reactionSeq={eventSeq} />
 
-        <View style={[styles.layer, sideBySide && styles.layerRow]}>
+        <View style={styles.layer}>
           {/* Explicit sizes, not flex: letting the wrapper expand made it
               overlap the tray, which the geometry test caught. */}
           <View
@@ -186,45 +221,39 @@ export default function PuzzleCountryRoute() {
           >
             <PuzzleBoard
               country={country}
+              parts={parts}
               placed={placed}
               highlighted={preview}
               size={boardSize}
+              intro={intro}
               onCellMeasured={onCellMeasured}
             />
           </View>
 
-          <View
-            style={[
-              styles.tray,
-              { gap: SPACING.s4 },
-              sideBySide
-                ? // Beside the board: a wrapping grid, two per row.
-                  { width: trayExtent * 2 + SPACING.s4, height: boardSize }
-                : { height: trayExtent },
-            ]}
-          >
+          <View style={[styles.tray, { width: trayWidth, height: availableHeight }]}>
             {trayOrder.map((id) => {
-              const shape = shapeById(id);
-              if (!shape) return null;
+              const part = parts.find((p) => p.id === id);
+              if (!part) return null;
               return (
                 <TraySlot
-                  key={shape.id}
-                  size={shape.size * boardSize}
-                  onMeasured={(centre) => onHomeMeasured(shape.id, centre)}
+                  key={part.id}
+                  size={trayRow}
+                  onMeasured={(centre) => onHomeMeasured(part.id, centre)}
                 >
                   <PuzzlePiece
                     country={country}
-                    shape={shape}
+                    part={part}
                     boardSize={boardSize}
-                    placed={placed.has(shape.id)}
-                    resolvePlacedOffset={() => placedOffset(shape.id)}
+                    restScale={restScaleFor(part)}
+                    placed={placed.has(part.id)}
+                    resolvePlacedOffset={() => placedOffset(part.id)}
                     round={round}
-                    onGrab={() => liftPiece(shape.id)}
-                    onDragMove={(point) => onDragMove(shape.id, point)}
-                    onDrop={(point) => handleDrop(shape.id, point)}
+                    onGrab={() => liftPiece(part.id)}
+                    onDragMove={(point) => onDragMove(part.id, point)}
+                    onDrop={(point) => handleDrop(part.id, point)}
                     // Parent-facing. The child navigates by shape.
-                    accessibilityLabel={shape.label}
-                    testID={`piece-${shape.id}`}
+                    accessibilityLabel={part.label}
+                    testID={`piece-${part.id}`}
                   />
                 </TraySlot>
               );
@@ -272,13 +301,18 @@ function TraySlot({
 
 const styles = StyleSheet.create({
   root: { flex: 1, padding: SPACING.s5, gap: SPACING.s4 },
-  layer: { flex: 1, justifyContent: 'space-between', alignItems: 'center' },
-  layerRow: { flexDirection: 'row', alignItems: 'center' },
+  layer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   boardWrap: { alignItems: 'center', justifyContent: 'center' },
   tray: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     flexWrap: 'wrap',
+    alignContent: 'center',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-evenly',
   },
 });

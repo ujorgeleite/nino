@@ -1,131 +1,157 @@
 // components/puzzle/PuzzleFigure.tsx
-// The country's landmark, drawn once — and clippable to a shape.
+// The country's landmark, and the parts it comes apart into.
 //
-// A puzzle piece is not a separate drawing. It is the SAME figure, clipped to
-// the shape of the hole it belongs in and offset so the right part shows.
-// That is why a piece always matches its hole exactly: they are generated from
-// one path (`shapePath`), so the promise "this shape fits here" cannot drift.
+// A piece is a PART OF THE PICTURE, cut along the drawing's own anatomy —
+// a roof, a turret, a mountain peak. Its outline follows the subject, so it
+// only fits its own place and a child can see that from the shape alone.
+//
+// THE BACKGROUND IS NEVER PART OF A PIECE. The board keeps the sky; a piece is
+// the drawing and nothing else. That is what makes a piece read as a thing
+// rather than as a tile.
+//
+// Everything is drawn in the primitive's own 100×100 space and cropped with a
+// viewBox, so a part is exactly the region the data declares — no scaling
+// arithmetic to get subtly wrong.
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
+import { View } from 'react-native';
+import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
 import { PRIMITIVES, INK, type StaticPrimitiveKind } from '../scene/primitives';
-import { shapePath, type PuzzleShape } from '../../constants/puzzleShapes';
+import { isPuzzleSubject, partsFor, type FigurePart } from '../../constants/figureParts';
 import type { CountryData, ScenePiece } from '../../constants/countries';
 
-/** Local box every primitive draws into (primitives.tsx contract). */
-const UNIT = 100;
-
-const LANDMARKS: StaticPrimitiveKind[] = [
-  'tower',
-  'castle',
-  'dome',
-  'columns',
-  'arch',
-  'mountain',
-  'bridge',
-  'house',
-  'forest',
-];
-
 /**
- * The figure a country's puzzle shows: its biggest landmark.
+ * The figure a country's puzzle shows: its biggest landmark that can be cut.
  *
  * Biggest, not first — the Matterhorn should be the picture for Switzerland,
  * not a chalet standing beside it.
  */
 export function figureFor(country: CountryData): ScenePiece | undefined {
-  const candidates = country.scene.filter(
-    (p) => p.kind === 'windmill' || LANDMARKS.includes(p.kind as StaticPrimitiveKind),
-  );
+  const candidates = country.scene.filter((p) => {
+    const kind = (p.kind === 'windmill' ? 'tower' : p.kind) as StaticPrimitiveKind;
+    return isPuzzleSubject(kind);
+  });
   if (candidates.length === 0) return undefined;
   return [...candidates].sort((a, b) => (b.scale ?? 1) - (a.scale ?? 1))[0];
 }
 
+/** The primitive a scene piece is drawn with. */
+export function kindOf(piece: ScenePiece): StaticPrimitiveKind {
+  // The windmill has no static primitive; its tower reads fine as one.
+  return (piece.kind === 'windmill' ? 'tower' : piece.kind) as StaticPrimitiveKind;
+}
+
+/** The parts a country's picture comes apart into. */
+export function partsForCountry(country: CountryData): readonly FigurePart[] {
+  const piece = figureFor(country);
+  return piece ? partsFor(kindOf(piece)) : [];
+}
+
 type Props = {
   country: CountryData;
-  /** Rendered size of the WHOLE figure. */
+  /** Rendered size of the WHOLE figure, in points. */
   size: number;
-  /** Draw the artwork faintly, as the board's ghost. */
+  /** Draw only this part, cropped to its own bounds. */
+  part?: FigurePart;
+  /** Draw as a faint guide rather than finished artwork. */
   ghost?: boolean;
-  /**
-   * Clip to one shape's silhouette and crop to it.
-   *
-   * The result is exactly the piece that fills that hole.
-   */
-  shape?: PuzzleShape;
+  /** Outline the part's silhouette. On for a piece, off inside the board. */
+  outlined?: boolean;
 };
 
-export function PuzzleFigure({ country, size, ghost = false, shape }: Props) {
-  const piece = figureFor(country);
-  if (!piece) return null;
+export function PuzzleFigure({
+  country,
+  size,
+  part,
+  ghost = false,
+  outlined = false,
+}: Props) {
+  const scenePiece = figureFor(country);
+  if (!scenePiece) return null;
 
-  // The windmill has no static primitive; its tower reads fine as one.
-  const kind = (piece.kind === 'windmill' ? 'tower' : piece.kind) as StaticPrimitiveKind;
-  const Primitive = PRIMITIVES[kind];
+  const Primitive = PRIMITIVES[kindOf(scenePiece)];
   if (!Primitive) return null;
 
   const { palette } = country;
-  const scale = size / UNIT;
 
   const artwork = (
-    <>
-      <Rect x={0} y={0} width={size} height={size} fill={palette.skyThere[1]} />
-      <G scale={scale}>
-        <Primitive
-          fill={piece.fill ?? palette.structure}
-          altFill={palette.structureAlt}
-          accent={palette.accent}
-          variant={piece.variant}
-        />
-      </G>
-    </>
+    <Primitive
+      fill={ghost ? 'rgba(51, 36, 28, 0.14)' : (scenePiece.fill ?? palette.structure)}
+      altFill={ghost ? 'rgba(51, 36, 28, 0.12)' : palette.structureAlt}
+      accent={ghost ? 'rgba(51, 36, 28, 0.1)' : palette.accent}
+      variant={scenePiece.variant}
+    />
   );
 
-  // The whole picture, for the board's background.
-  if (!shape) {
+  // The whole picture. Transparent behind it — the board owns the background.
+  if (!part) {
     return (
-      <View style={{ width: size, height: size, opacity: ghost ? 0.9 : 1 }}>
-        <Svg width={size} height={size}>{artwork}</Svg>
+      <View style={{ width: size, height: size }} pointerEvents="none">
+        <Svg width={size} height={size} viewBox="0 0 100 100">
+          {artwork}
+        </Svg>
       </View>
     );
   }
 
-  // One shape, clipped out of the picture and cropped to its own bounds.
-  const shapeSize = shape.size * size;
-  const left = shape.cx * size - shapeSize / 2;
-  const top = shape.cy * size - shapeSize / 2;
-  const clipId = `clip-${shape.id}`;
+  // One part. The viewBox crops to its bounds AND scales it, so the part is
+  // exactly the region the data declares.
+  const [bx, by, bw, bh] = part.box;
+  const w = (bw / 100) * size;
+  const h = (bh / 100) * size;
+  const clipId = `part-${part.id}`;
 
   return (
-    <View style={[styles.window, { width: shapeSize, height: shapeSize }]}>
-      <Svg width={shapeSize} height={shapeSize}>
+    <View style={{ width: w, height: h }} pointerEvents="none">
+      <Svg width={w} height={h} viewBox={`${bx} ${by} ${bw} ${bh}`}>
         <Defs>
           <ClipPath id={clipId}>
-            <Path d={shapePath(shape.id, shapeSize)} />
+            <Path d={part.path} />
           </ClipPath>
         </Defs>
-        {/* The artwork is shifted so the shape's region lands in the window. */}
-        <G clipPath={`url(#${clipId})`} x={-left} y={-top}>
-          {artwork}
-        </G>
-        {/* The outline, so the silhouette reads even against busy artwork. */}
-        <Path
-          d={shapePath(shape.id, shapeSize)}
-          fill="none"
-          stroke={INK}
-          strokeWidth={4}
-          strokeLinejoin="round"
-        />
+        <G clipPath={`url(#${clipId})`}>{artwork}</G>
+        {outlined && (
+          // The cut edge. Without it a piece dissolves into the artwork it
+          // came from and stops reading as a separate object.
+          <Path
+            d={part.path}
+            fill="none"
+            stroke={INK}
+            strokeWidth={3}
+            strokeLinejoin="round"
+          />
+        )}
       </Svg>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  window: { overflow: 'hidden' },
-});
+/** An empty socket: the part's silhouette, recessed into the board. */
+export function PartSocket({
+  part,
+  size,
+  fill = 'rgba(38, 25, 15, 0.42)',
+}: {
+  part: FigurePart;
+  size: number;
+  fill?: string;
+}) {
+  const [bx, by, bw, bh] = part.box;
+  const w = (bw / 100) * size;
+  const h = (bh / 100) * size;
+
+  return (
+    <Svg width={w} height={h} viewBox={`${bx} ${by} ${bw} ${bh}`}>
+      <Path
+        d={part.path}
+        fill={fill}
+        stroke={INK}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export { INK };
-
 export default PuzzleFigure;

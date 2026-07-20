@@ -8,6 +8,13 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
+/** Parts differ per country, so ids are read from the live DOM. */
+async function partIds(page: Page): Promise<string[]> {
+  return page.$$eval('[data-testid^="piece-"]', (nodes) =>
+    nodes.map((n) => (n.getAttribute('data-testid') || '').replace('piece-', '')),
+  );
+}
+
 /** Is a piece sitting in its socket? Detected by position — see shapefit.spec. */
 async function isSeated(page: Page, itemId: string): Promise<boolean> {
   const piece = await page.getByTestId(`piece-${itemId}`).boundingBox();
@@ -51,8 +58,9 @@ test.describe('performance', () => {
 
     // Time from grabbing a piece to it sitting in its cell. Rule 4 wants
     // feedback inside 100ms; the settle spring adds a little on top.
-    const from = await centre('piece-circle');
-    const to = await centre('cell-circle');
+    const [first] = await partIds(page);
+    const from = await centre(`piece-${first}`);
+    const to = await centre(`cell-${first}`);
     const t0 = Date.now();
 
     await page.mouse.move(from.x, from.y);
@@ -69,8 +77,8 @@ test.describe('performance', () => {
     await expect
       .poll(
         async () => {
-          const p = await page.getByTestId('piece-circle').boundingBox();
-          const c = await page.getByTestId('cell-circle').boundingBox();
+          const p = await page.getByTestId(`piece-${first}`).boundingBox();
+          const c = await page.getByTestId(`cell-${first}`).boundingBox();
           if (!p || !c) return false;
           return (
             Math.hypot(

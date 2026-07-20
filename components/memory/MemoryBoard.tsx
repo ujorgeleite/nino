@@ -14,8 +14,14 @@ import type { MemoryCard } from '../../hooks/useMemoryNL';
 const COLUMNS = 5;
 const ROWS = 2;
 
-/** Card width the spec calls for; scaled down when the viewport cannot fit it. */
-const NOMINAL_CARD = 124;
+/**
+ * Target card width.
+ *
+ * Raised from 124 in the sensory redesign: a 2-year-old reaches for the
+ * biggest thing on screen, and Memory was losing to Shape Fit partly on sheer
+ * presence. Still fitted to the viewport, never below the 90pt floor.
+ */
+const NOMINAL_CARD = 148;
 
 /** How far a card may drift from its grid slot, as a fraction of card width. */
 const SCATTER_X = 0.16;

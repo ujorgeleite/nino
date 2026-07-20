@@ -175,6 +175,49 @@ Never hardcode a pixel (rule 9). Every number comes from a token,
 
 ---
 
+## Depth — how an object sits above the surface
+
+**`constants/depth.ts` owns this. `components/ui/Solid.tsx` applies it.**
+
+The flat "chunky" shadow below is retained for chrome (HUD, panels), but
+anything a child touches now uses the layered system instead. A single hard
+zero-blur drop reads as a sticker; nothing about it says the thing could be
+picked up.
+
+Three cues, moving **independently** as an object rises:
+
+| Cue | At rest | Lifted | What it says |
+|---|---|---|---|
+| **Contact** | tight, dark, opacity .34 | shrinks, fades to ~.08 | touching the ground |
+| **Cast** | soft, near, opacity .16 | grows, drifts, opacity .28 | how high it is |
+| **Form** | top highlight + bottom shade | unchanged | the face is curved |
+
+All driven by one `elevation` shared value (0 resting, 1 lifted), so a drag
+animates every layer from a single number.
+
+**The contact shadow fading is most of the sensation of lifting.** If only one
+cue can be afforded, that is the one.
+
+### Floating
+
+`hooks/useFloat.ts`. Amplitude 5pt, period 3600ms, tilt 1.6°.
+
+**Phase is derived from the object's id**, so a tray of five pieces reads as
+five separate floating things rather than one animated panel. Identical phase
+is the difference between "objects" and "a moving background".
+
+Floating stops while an object is held (it belongs to the finger) and once it
+is placed (it belongs to the board).
+
+### Drop preview
+
+`HALO` in depth.ts. A socket glows as a matching piece approaches.
+
+This is the single biggest usability win for a 2-year-old: without it, being
+slightly too far away is indistinguishable from being wrong.
+
+---
+
 ## Shadows — the "chunky" signature
 
 A hard navy offset with **zero blur**. This is the most recognizable trait of the
@@ -214,6 +257,32 @@ flip, pulse, spring snap, the haptic map — live in `docs/ANIMATION_GUIDELINES.
 
 Feedback budget: **haptic first, sound within 50ms (`HAPTICS_DELAY_MS`), the
 whole response under 100ms** (rule 4).
+
+---
+
+## Easter eggs
+
+`constants/easterEggs.ts`, `components/scene/TouchableScenery.tsx`.
+
+Scenery answers back when touched: the windmill spins, the field moos, the
+mountain shimmers. Five reaction types — spin, swing, bounce, wobble, shimmer.
+
+**Why they exist:** a toddler pokes everything. In a game where only the pieces
+respond, every other tap teaches "that does nothing", and a screen full of dead
+pixels is one they stop exploring.
+
+**Rules an egg must obey:**
+- never interrupts the game — no modal, no navigation, no pause
+- never a fail state; there is nothing to get wrong
+- both seen and heard, within the usual 100ms
+- stays in the background — an egg must not out-shout the game
+- has a cooldown (420ms), because a child will hammer the same windmill
+
+Eggs borrow the existing item voices rather than shipping new audio, so they
+cost nothing extra and fall under the same mute switch.
+
+**Hit zones are transparent pads over the scene**, never the scenery itself.
+The skyline stays one flat memoized draw.
 
 ---
 

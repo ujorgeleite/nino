@@ -26,6 +26,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Circle, Ellipse, G, Line, Rect } from 'react-native-svg';
 import { PRIMITIVES, INK, type StaticPrimitiveKind } from './primitives';
+import TouchableScenery from './TouchableScenery';
+import { eggFor } from '../../constants/easterEggs';
 import { MOTION, type NinoMode } from '../../constants/nino';
 import type { CountryData, ScenePiece } from '../../constants/countries';
 
@@ -125,6 +127,29 @@ export function CountryScene({ country, mode = 'there', children }: Props) {
           dim={isBack}
         />
       ) : null}
+
+      {/* Easter eggs: transparent hit zones over the scenery.
+          The skyline itself stays one flat, memoized draw — only these pads
+          are interactive, so poking the world costs nothing to render. */}
+      {country.scene.map((piece, i) => {
+        const egg = eggFor(piece.kind);
+        if (!egg) return null;
+        const pieceScale = (piece.scale ?? 1) * unitPx;
+        const spanning =
+          piece.kind === 'water' || piece.kind === 'field' || piece.kind === 'hill';
+
+        return (
+          <TouchableScenery
+            key={`egg-${piece.kind}-${i}`}
+            egg={egg}
+            left={spanning ? 0 : piece.x * width - pieceScale / 2}
+            top={spanning ? horizon : horizon - pieceScale}
+            width={spanning ? width : pieceScale}
+            height={spanning ? height - horizon : pieceScale}
+            testID={`egg-${piece.kind}-${i}`}
+          />
+        );
+      })}
 
       <View style={styles.content}>{children}</View>
     </View>

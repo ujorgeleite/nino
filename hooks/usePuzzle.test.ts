@@ -83,6 +83,30 @@ describe('usePuzzle', () => {
     expect(result.current.placed.has(FIRST)).toBe(false);
   });
 
+  it('rejects a wrong drop even when the right cell is within the radius', () => {
+    // THE BUG THIS PINS DOWN shipped and only appeared on iPhone.
+    //
+    // The snap radius is an absolute 78pt. On a small board two sockets sit
+    // about 42pt apart, so a piece dropped squarely on its NEIGHBOUR was still
+    // within its own socket's radius and got accepted — the picture assembled
+    // itself wrong, and the child had done nothing.
+    //
+    // Sockets 40 apart: the drop is on SECOND, and well inside FIRST's radius.
+    const tight: Record<string, Point> = {
+      [FIRST]: { x: 200, y: 200 },
+      [SECOND]: { x: 240, y: 200 },
+    };
+    const { result } = renderHook(() => usePuzzle([FIRST, SECOND]));
+
+    let ok = true;
+    act(() => {
+      ok = result.current.tryPlace(FIRST, tight[SECOND], tight);
+    });
+
+    expect(ok).toBe(false);
+    expect(result.current.placed.has(FIRST)).toBe(false);
+  });
+
   it('rejects a piece dropped on the WRONG cell', () => {
     const { result } = renderHook(() => usePuzzle(PART_IDS));
 

@@ -147,11 +147,16 @@ export function PuzzlePiece({
     opacity: placed && !held.value ? 0 : 1,
   }));
 
-  // The artwork is drawn at exactly the board's scale, so a piece and its
-  // socket are the same size and the match is literal.
+  // THE ARTWORK IS LAID OUT AT ITS RESTING SIZE, not scaled down from full.
+  //
+  // Drawing it at board scale and shrinking it with a transform looked right
+  // and measured right — a transform does not change layout, so the view kept
+  // the FULL size and spilled its drawing over the neighbouring piece while
+  // every bounding-box test still passed. Laying out at rest size and scaling
+  // UP on lift keeps layout and drawing the same thing.
   const [, , bw, bh] = part.box;
-  const artW = (bw / 100) * boardSize;
-  const artH = (bh / 100) * boardSize;
+  const artW = (bw / 100) * boardSize * restScale;
+  const artH = (bh / 100) * boardSize * restScale;
 
   // THE TOUCH AREA IS SIZED SEPARATELY, AND ITS FLOOR IS ABSOLUTE.
   //
@@ -163,8 +168,8 @@ export function PuzzlePiece({
   // The artwork is NOT grown to match: that would break the promise that a
   // piece is exactly the size of its socket. Only the transparent hit box grows.
   // Measured at REST, since that is the size a waiting finger has to hit.
-  const touchW = Math.max(artW * restScale, LAYOUT.touchMin);
-  const touchH = Math.max(artH * restScale, LAYOUT.touchMin);
+  const touchW = Math.max(artW, LAYOUT.touchMin);
+  const touchH = Math.max(artH, LAYOUT.touchMin);
 
   // Solid cannot be used here: it draws a rounded RECTANGLE, and the whole
   // point is that this piece is a circle, a star or a triangle. The depth is
@@ -175,9 +180,9 @@ export function PuzzlePiece({
       transform: [
         { translateY: float.offsetY.value - e * LIFT_HEIGHT },
         { rotate: `${float.tilt.value}deg` },
-        // Rest size while waiting, true size while carried: by the time the
+        // Rest size while waiting, TRUE size while carried: by the time the
         // piece is over its socket the two are literally the same size.
-        { scale: restScale + e * (1 - restScale) + e * LIFT_SCALE },
+        { scale: 1 + e * (1 / restScale - 1) + e * LIFT_SCALE },
       ],
     };
   });
@@ -190,8 +195,20 @@ export function PuzzlePiece({
         accessibilityLabel={accessibilityLabel}
         testID={testID}
       >
-        <Animated.View style={[castShadow(0.6), contactShadow(0.2), liftStyle]}>
-          <PuzzleFigure country={country} size={boardSize} part={part} outlined />
+        {/* testID on the ARTWORK, not the touch box: e2e/puzzle-art.spec.ts
+            measures how much of a piece is actually painted, and a narrow part
+            inside a square 90pt target would read as mostly empty however well
+            it is drawn. */}
+        <Animated.View
+          style={[castShadow(0.6), contactShadow(0.2), liftStyle]}
+          testID={testID ? `art-${testID.replace('piece-', '')}` : undefined}
+        >
+          <PuzzleFigure
+            country={country}
+            size={boardSize * restScale}
+            part={part}
+            outlined
+          />
         </Animated.View>
       </Animated.View>
     </GestureDetector>

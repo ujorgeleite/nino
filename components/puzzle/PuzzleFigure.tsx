@@ -29,7 +29,7 @@ import type { CountryData, ScenePiece } from '../../constants/countries';
 export function figureFor(country: CountryData): ScenePiece | undefined {
   const candidates = country.scene.filter((p) => {
     const kind = (p.kind === 'windmill' ? 'tower' : p.kind) as StaticPrimitiveKind;
-    return isPuzzleSubject(kind);
+    return isPuzzleSubject(kind, p.variant);
   });
   if (candidates.length === 0) return undefined;
   return [...candidates].sort((a, b) => (b.scale ?? 1) - (a.scale ?? 1))[0];
@@ -44,7 +44,7 @@ export function kindOf(piece: ScenePiece): StaticPrimitiveKind {
 /** The parts a country's picture comes apart into. */
 export function partsForCountry(country: CountryData): readonly FigurePart[] {
   const piece = figureFor(country);
-  return piece ? partsFor(kindOf(piece)) : [];
+  return piece ? partsFor(kindOf(piece), piece.variant) : [];
 }
 
 type Props = {
@@ -58,6 +58,9 @@ type Props = {
   /** Outline the part's silhouette. On for a piece, off inside the board. */
   outlined?: boolean;
 };
+
+/** Faint enough to be a hint, strong enough to promise a picture. */
+const GHOST_OPACITY = 0.17;
 
 export function PuzzleFigure({
   country,
@@ -74,13 +77,22 @@ export function PuzzleFigure({
 
   const { palette } = country;
 
+  // THE GHOST FADES THE WHOLE DRAWING, not just its fills.
+  //
+  // Fading only the fills left every primitive's INK outline at full strength,
+  // so the empty board still read as a finished picture — a child could not
+  // see that anything was missing. Opacity on the group takes the strokes with
+  // it, and the ghost keeps the real colours, which says more about what the
+  // picture will be than a brown smudge did.
   const artwork = (
-    <Primitive
-      fill={ghost ? 'rgba(51, 36, 28, 0.14)' : (scenePiece.fill ?? palette.structure)}
-      altFill={ghost ? 'rgba(51, 36, 28, 0.12)' : palette.structureAlt}
-      accent={ghost ? 'rgba(51, 36, 28, 0.1)' : palette.accent}
-      variant={scenePiece.variant}
-    />
+    <G opacity={ghost ? GHOST_OPACITY : 1}>
+      <Primitive
+        fill={scenePiece.fill ?? palette.structure}
+        altFill={palette.structureAlt}
+        accent={palette.accent}
+        variant={scenePiece.variant}
+      />
+    </G>
   );
 
   // The whole picture. Transparent behind it — the board owns the background.
@@ -130,7 +142,7 @@ export function PuzzleFigure({
 export function PartSocket({
   part,
   size,
-  fill = 'rgba(38, 25, 15, 0.42)',
+  fill = 'rgba(38, 25, 15, 0.20)',
 }: {
   part: FigurePart;
   size: number;
@@ -148,6 +160,11 @@ export function PartSocket({
         stroke={INK}
         strokeWidth={2.5}
         strokeLinejoin="round"
+        // A DASHED edge says empty. Solid outlines at full strength made the
+        // untouched board look like a finished drawing, so a child could not
+        // see that anything was missing.
+        strokeDasharray="7 5"
+        strokeOpacity={0.5}
       />
     </Svg>
   );

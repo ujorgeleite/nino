@@ -48,9 +48,6 @@ export const COLORS = {
   cream:       '#FFF4E4',
   bg:          '#EFEDE7',
   surface:     '#F7F3EA',
-  // The puzzle's playing field. Neutral by intent: the picture's own colours
-  // have to be the only colours that matter while a piece is being read.
-  playSurface: '#2C3038',
   border:      '#D9C49E',
   borderSoft:  '#EDF0F3',
   muted:       '#9A938A',

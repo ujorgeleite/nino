@@ -21,6 +21,21 @@
 // Every part carries an explicit polygon rather than being derived, because
 // the boundary is a drawing decision: where a castle's turret ends and its keep
 // begins is a judgement about the picture, not a computation.
+//
+// THE PATHS COME FROM primitives.tsx, NOT FROM AN IDEA OF THE SHAPE.
+//
+// The first version of this table was authored as an idealised anatomy in the
+// 100x100 box, without checking where each primitive actually draws. The
+// sockets looked right — they are drawn from these same paths — but the
+// artwork behind them was somewhere else entirely, so a piece cropped to a
+// region the drawing did not occupy came out EMPTY, and pieces that did have
+// artwork showed the wrong fragment of it. It looked plausible in every unit
+// test and was obvious in a screenshot.
+//
+// So each path here traces geometry that exists in primitives.tsx, and parts
+// are keyed by VARIANT as well as kind, because a variant is not a detail: an
+// Eiffel-style lattice tower and a plain clock tower share nothing but a name.
+// e2e/puzzle-art.spec.ts renders each piece and fails if it is mostly empty.
 
 import type { StaticPrimitiveKind } from '../components/scene/primitives';
 
@@ -48,55 +63,114 @@ export type FigurePart = {
  * Forcing every picture into the same number of pieces would mean cutting some
  * of them against their own shape.
  */
-export const FIGURE_PARTS: Record<StaticPrimitiveKind, readonly FigurePart[]> = {
-  // Peak, then two slopes cut on a SLANT so they are not mirror images.
-  // A symmetric cut would give two identical shapes, and identical shapes are
-  // exactly the ambiguity this design exists to remove.
+/**
+ * Cuts, keyed by `kind` or by `kind:variant` where the variant redraws the
+ * subject. `partsFor` prefers the variant entry and falls back to the kind.
+ *
+ * Counts vary because subjects vary: a forest is naturally three trees, a
+ * bridge is a span and its approach. Forcing every picture into the same
+ * number of pieces would mean cutting some against their own shape.
+ */
+export const FIGURE_PARTS: Record<string, readonly FigurePart[]> = {
+  // Body: M 2 100 L 50 8 L 98 100 Z. The flanks are cut on a SLANT so they are
+  // not mirror images of each other.
   mountain: [
-    {
-      id: 'peak',
-      path: 'M 50 8 L 72 50 L 30 50 Z',
-      box: [30, 8, 42, 42],
-      label: 'Peak',
-    },
+    { id: 'peak', path: 'M 50 8 L 74 54 L 26 54 Z', box: [26, 8, 48, 46], label: 'Peak' },
     {
       id: 'left-slope',
-      path: 'M 30 50 L 52 50 L 40 100 L 2 100 Z',
-      box: [2, 50, 50, 50],
+      path: 'M 26 54 L 52 54 L 40 100 L 2 100 Z',
+      box: [2, 54, 50, 46],
       label: 'Left slope',
     },
     {
       id: 'right-slope',
-      path: 'M 52 50 L 72 50 L 98 100 L 40 100 Z',
-      box: [40, 50, 58, 50],
+      path: 'M 52 54 L 74 54 L 98 100 L 40 100 Z',
+      box: [40, 54, 58, 46],
       label: 'Right slope',
     },
   ],
 
-  // Spire, shaft, splayed base — three different silhouettes by nature.
-  tower: [
+  // Lattice tower: body M 22 100 L 40 26 L 60 26 L 78 100 Z, spire M 40 26 L 50 6 L 60 26 Z.
+  'tower:lattice': [
+    { id: 'spire', path: 'M 40 26 L 50 6 L 60 26 Z', box: [40, 6, 20, 20], label: 'Top' },
     {
-      id: 'spire',
-      path: 'M 38 28 L 50 3 L 62 28 Z',
-      box: [38, 3, 24, 25],
-      label: 'Spire',
+      id: 'middle',
+      path: 'M 40 26 L 60 26 L 69 63 L 31 63 Z',
+      box: [31, 26, 38, 37],
+      label: 'Middle',
     },
     {
-      id: 'shaft',
-      path: 'M 38 28 L 62 28 L 68 64 L 32 64 Z',
-      box: [32, 28, 36, 36],
+      id: 'legs',
+      path: 'M 31 63 L 69 63 L 78 100 L 22 100 Z',
+      box: [22, 63, 56, 37],
+      label: 'Legs',
+    },
+  ],
+
+  // Capped towers: Rect 36,30,28,70 under a cap M 32 30 L 50 2 L 68 30 Z.
+  'tower:spire': [
+    { id: 'cap', path: 'M 32 30 L 50 2 L 68 30 Z', box: [32, 2, 36, 28], label: 'Roof' },
+    {
+      id: 'middle',
+      path: 'M 36 30 L 64 30 L 64 66 L 36 66 Z',
+      box: [36, 30, 28, 36],
       label: 'Middle',
     },
     {
       id: 'base',
-      path: 'M 32 64 L 68 64 L 78 100 L 22 100 Z',
-      box: [22, 64, 56, 36],
+      path: 'M 36 66 L 64 66 L 64 100 L 36 100 Z',
+      box: [36, 66, 28, 34],
       label: 'Base',
     },
   ],
 
-  // Four masses, each deliberately different: a plain turret, a turret with a
-  // pointed cap, a crenellated keep, and a gate with its archway cut out.
+  // The clock tower's body starts higher (Rect 36,22,28,78) but wears the same
+  // cap, so the cut is the same and the extra strip sits behind the roof.
+  'tower:clock': [
+    { id: 'cap', path: 'M 32 30 L 50 2 L 68 30 Z', box: [32, 2, 36, 28], label: 'Roof' },
+    {
+      id: 'middle',
+      path: 'M 36 30 L 64 30 L 64 66 L 36 66 Z',
+      box: [36, 30, 28, 36],
+      label: 'Middle',
+    },
+    {
+      id: 'base',
+      path: 'M 36 66 L 64 66 L 64 100 L 36 100 Z',
+      box: [36, 66, 28, 34],
+      label: 'Base',
+    },
+  ],
+
+  // Plain tower (also the windmill's tower): one Rect 36,30,28,70, so the cut
+  // is three bands of DIFFERENT depths — equal bands would be equal shapes.
+  tower: [
+    {
+      id: 'top',
+      path: 'M 36 30 L 64 30 L 64 50 L 36 50 Z',
+      box: [36, 30, 28, 20],
+      label: 'Top',
+    },
+    {
+      id: 'middle',
+      path: 'M 36 50 L 64 50 L 64 74 L 36 74 Z',
+      box: [36, 50, 28, 24],
+      label: 'Middle',
+    },
+    {
+      id: 'base',
+      path: 'M 36 74 L 64 74 L 64 100 L 36 100 Z',
+      box: [36, 74, 28, 26],
+      label: 'Base',
+    },
+  ],
+
+  // Keep Rect 22,46,56,54 with crenellations to y=38 and turrets 10/70,34,20,66.
+  //
+  // The building is symmetric, and a symmetric cut would hand the child two
+  // identical turrets — the exact ambiguity this design removes. So the right
+  // turret is cut together with the base it stands on: still a mass of the
+  // drawing, and unmistakably not the left one.
   castle: [
     {
       id: 'left-turret',
@@ -106,30 +180,51 @@ export const FIGURE_PARTS: Record<StaticPrimitiveKind, readonly FigurePart[]> = 
     },
     {
       id: 'keep',
-      path: 'M 30 44 L 30 36 L 40 36 L 40 44 L 52 44 L 52 36 L 62 36 L 62 44 L 70 44 L 70 70 L 30 70 Z',
-      box: [30, 36, 40, 34],
+      path: 'M 22 38 L 32 38 L 32 46 L 42 46 L 42 38 L 52 38 L 52 46 L 62 46 L 62 38 L 72 38 L 72 46 L 78 46 L 78 58 L 22 58 Z',
+      box: [22, 38, 56, 20],
       label: 'Keep',
     },
     {
-      id: 'gate',
-      path: 'M 30 70 L 70 70 L 70 100 L 58 100 L 58 84 Q 50 78 42 84 L 42 100 L 30 100 Z',
-      box: [30, 70, 40, 30],
-      label: 'Gate',
-    },
-    {
-      id: 'right-turret',
-      path: 'M 68 34 L 80 18 L 92 34 L 88 34 L 88 100 L 72 100 L 72 34 Z',
-      box: [68, 18, 24, 82],
-      label: 'Right tower',
+      // The cut sits at y=58 rather than lower so that this part's centre and
+      // the keep's stay far enough apart to aim at separately — an L-shaped
+      // part is measured by its box, and a deeper cut put the two centres
+      // inside one snap radius of each other.
+      id: 'base',
+      path: 'M 22 58 L 70 58 L 70 34 L 90 34 L 90 100 L 22 100 Z',
+      box: [22, 34, 68, 66],
+      label: 'Base and right tower',
     },
   ],
 
-  // A semicircle, a plain wall, and a wall with the doorway cut into it.
+  // Spired castle: turret spires M 8 34 L 20 8 L 32 34 and M 68 34 L 80 8 L 92 34,
+  // plus a central roof M 20 46 L 50 18 L 80 46.
+  'castle:spired': [
+    {
+      id: 'left-tower',
+      path: 'M 8 34 L 20 8 L 32 34 L 30 34 L 30 100 L 10 100 L 10 34 Z',
+      box: [8, 8, 24, 92],
+      label: 'Left tower',
+    },
+    {
+      id: 'roof',
+      path: 'M 20 46 L 50 18 L 80 46 Z',
+      box: [20, 18, 60, 28],
+      label: 'Roof',
+    },
+    {
+      id: 'right-tower',
+      path: 'M 68 34 L 80 8 L 92 34 L 90 34 L 90 100 L 22 100 L 22 46 L 70 46 L 70 34 Z',
+      box: [22, 8, 70, 92],
+      label: 'Right tower and hall',
+    },
+  ],
+
+  // Drum Rect 24,58,52,42 under cupola M 24 58 A 26 26 0 0 1 76 58 Z.
   dome: [
     {
       id: 'cupola',
       path: 'M 24 58 A 26 26 0 0 1 76 58 Z',
-      box: [24, 30, 52, 28],
+      box: [24, 32, 52, 26],
       label: 'Dome',
     },
     {
@@ -140,121 +235,180 @@ export const FIGURE_PARTS: Record<StaticPrimitiveKind, readonly FigurePart[]> = 
     },
     {
       id: 'right-wall',
-      path: 'M 48 58 L 76 58 L 76 100 L 62 100 L 62 82 Q 55 76 48 82 Z',
+      path: 'M 48 58 L 76 58 L 76 100 L 48 100 Z',
       box: [48, 58, 28, 42],
       label: 'Right wall',
     },
   ],
 
-  // Roof, an upper storey, and a ground floor with the door cut out.
-  house: [
+  // Body Rect 18,30,64,70 under lintel Rect 14,22,72,10.
+  arch: [
     {
-      id: 'roof',
-      path: 'M 14 46 L 50 9 L 86 46 Z',
-      box: [14, 9, 72, 37],
+      id: 'lintel',
+      path: 'M 14 22 L 86 22 L 86 32 L 14 32 Z',
+      box: [14, 22, 72, 10],
+      label: 'Top',
+    },
+    {
+      id: 'left-pier',
+      path: 'M 18 32 L 46 32 L 46 100 L 18 100 Z',
+      box: [18, 32, 28, 68],
+      label: 'Left side',
+    },
+    {
+      id: 'right-pier',
+      path: 'M 46 32 L 82 32 L 82 100 L 46 100 Z',
+      box: [46, 32, 36, 68],
+      label: 'Right side',
+    },
+  ],
+
+  // Facade Rect 14,34,72,66 under entablature Rect 10,26,80,10.
+  columns: [
+    {
+      id: 'entablature',
+      path: 'M 10 26 L 90 26 L 90 36 L 10 36 Z',
+      box: [10, 26, 80, 10],
       label: 'Roof',
     },
     {
+      id: 'left-arcade',
+      path: 'M 14 36 L 44 36 L 44 100 L 14 100 Z',
+      box: [14, 36, 30, 64],
+      label: 'Left arches',
+    },
+    {
+      id: 'right-arcade',
+      path: 'M 44 36 L 86 36 L 86 100 L 44 100 Z',
+      box: [44, 36, 42, 64],
+      label: 'Right arches',
+    },
+  ],
+
+  // Body Rect 18,44,64,56 under a gable that the variant redraws.
+  house: [
+    { id: 'roof', path: 'M 16 44 L 50 12 L 84 44 Z', box: [16, 12, 68, 32], label: 'Roof' },
+    {
       id: 'upper-floor',
-      path: 'M 18 46 L 82 46 L 82 74 L 18 74 Z',
-      box: [18, 46, 64, 28],
+      path: 'M 18 44 L 82 44 L 82 74 L 18 74 Z',
+      box: [18, 44, 64, 30],
       label: 'Upstairs',
     },
     {
       id: 'ground-floor',
-      path: 'M 18 74 L 82 74 L 82 100 L 60 100 L 60 84 L 40 84 L 40 100 L 18 100 Z',
+      path: 'M 18 74 L 82 74 L 82 100 L 18 100 Z',
       box: [18, 74, 64, 26],
       label: 'Downstairs',
     },
   ],
 
-  // The entablature, then two arcades of DIFFERENT widths and arch counts.
-  columns: [
+  'house:stepped': [
     {
-      id: 'entablature',
-      path: 'M 8 24 L 92 24 L 88 46 L 12 46 Z',
-      box: [8, 24, 84, 22],
+      id: 'roof',
+      path: 'M 16 44 L 16 34 L 30 34 L 30 24 L 44 24 L 44 14 L 56 14 L 56 24 L 70 24 L 70 34 L 84 34 L 84 44 Z',
+      box: [16, 14, 68, 30],
       label: 'Roof',
     },
     {
-      id: 'left-arcade',
-      path: 'M 12 46 L 44 46 L 44 100 L 36 100 L 36 66 Q 28 60 20 66 L 20 100 L 14 100 Z',
-      box: [12, 46, 32, 54],
-      label: 'Left arches',
+      id: 'upper-floor',
+      path: 'M 18 44 L 82 44 L 82 74 L 18 74 Z',
+      box: [18, 44, 64, 30],
+      label: 'Upstairs',
     },
     {
-      id: 'right-arcade',
-      path: 'M 44 46 L 88 46 L 86 100 L 78 100 L 78 66 Q 70 60 62 66 L 62 100 L 54 100 L 54 66 Q 49 62 44 66 Z',
-      box: [44, 46, 44, 54],
-      label: 'Right arches',
+      id: 'ground-floor',
+      path: 'M 18 74 L 82 74 L 82 100 L 18 100 Z',
+      box: [18, 74, 64, 26],
+      label: 'Downstairs',
     },
   ],
 
-  // A lintel, a plain pier, and a pier with a stepped foot.
-  arch: [
+  'house:flat': [
     {
-      id: 'lintel',
-      path: 'M 12 20 L 88 20 L 84 44 L 16 44 Z',
-      box: [12, 20, 76, 24],
-      label: 'Top',
+      id: 'roof',
+      path: 'M 14 44 L 14 36 L 86 36 L 86 44 Z',
+      box: [14, 36, 72, 8],
+      label: 'Roof',
     },
     {
-      id: 'left-pier',
-      path: 'M 16 44 L 42 44 L 42 100 L 18 100 Z',
-      box: [16, 44, 26, 56],
-      label: 'Left side',
+      id: 'upper-floor',
+      path: 'M 18 44 L 82 44 L 82 74 L 18 74 Z',
+      box: [18, 44, 64, 30],
+      label: 'Upstairs',
     },
     {
-      id: 'right-pier',
-      path: 'M 58 44 L 84 44 L 82 92 L 88 92 L 88 100 L 56 100 L 56 92 L 60 92 Z',
-      box: [56, 44, 32, 56],
-      label: 'Right side',
+      id: 'ground-floor',
+      path: 'M 18 74 L 82 74 L 82 100 L 18 100 Z',
+      box: [18, 74, 64, 26],
+      label: 'Downstairs',
+    },
+  ],
+
+  // The deck is one curved band, M 4 76 Q 50 42 96 76 L 96 84 Q 50 50 4 84 Z.
+  // Cut off-centre, so the two halves are not mirror images. The piers are
+  // strokes with no fill, so they are not pieces.
+  bridge: [
+    {
+      id: 'long-span',
+      path: 'M 4 76 Q 34 55 64 60 L 64 68 Q 34 63 4 84 Z',
+      box: [4, 55, 60, 29],
+      label: 'Long side',
+    },
+    {
+      id: 'short-span',
+      path: 'M 64 60 Q 82 63 96 76 L 96 84 Q 82 71 64 68 Z',
+      box: [64, 60, 32, 24],
+      label: 'Short side',
     },
   ],
 
   // A forest is already three trees, and they are three different heights.
   forest: [
     {
-      id: 'left-tree',
-      path: 'M 22 100 L 6 62 L 16 62 L 22 38 L 28 62 L 38 62 Z',
-      box: [6, 38, 32, 62],
+      id: 'small-tree',
+      path: 'M 22 100 L 8 62 L 16 62 L 22 40 L 28 62 L 36 62 Z',
+      box: [8, 40, 28, 60],
       label: 'Small tree',
     },
     {
-      id: 'centre-tree',
-      path: 'M 52 100 L 32 52 L 44 52 L 52 20 L 60 52 L 72 52 Z',
-      box: [32, 20, 40, 80],
+      id: 'tall-tree',
+      path: 'M 52 100 L 34 52 L 44 52 L 52 22 L 60 52 L 70 52 Z',
+      box: [34, 22, 36, 78],
       label: 'Tall tree',
     },
     {
-      id: 'right-tree',
-      path: 'M 80 100 L 64 64 L 74 64 L 80 42 L 86 64 L 96 64 Z',
-      box: [64, 42, 32, 58],
+      id: 'other-tree',
+      path: 'M 80 100 L 66 64 L 74 64 L 80 44 L 86 64 L 94 64 Z',
+      box: [66, 44, 28, 56],
       label: 'Other tree',
     },
   ],
 
-  // A sloping end, the arched span, and an end with a pier under it.
-  bridge: [
+  'forest:cypress': [
     {
-      id: 'left-end',
-      path: 'M 2 80 L 30 58 L 30 100 L 2 100 Z',
-      box: [2, 58, 28, 42],
-      label: 'Left end',
+      id: 'small-tree',
+      path: 'M 26 100 Q 18 52 26 26 Q 34 52 26 100 Z',
+      box: [18, 26, 16, 74],
+      label: 'Small tree',
     },
     {
-      id: 'span',
-      path: 'M 30 58 Q 50 48 68 58 L 68 74 Q 50 64 30 74 Z',
-      box: [30, 48, 38, 26],
-      label: 'Middle',
+      id: 'tall-tree',
+      path: 'M 50 100 Q 41 44 50 14 Q 59 44 50 100 Z',
+      box: [41, 14, 18, 86],
+      label: 'Tall tree',
     },
     {
-      id: 'right-end',
-      path: 'M 68 58 L 98 80 L 98 100 L 84 100 L 84 76 L 76 76 L 76 100 L 68 100 Z',
-      box: [68, 58, 30, 42],
-      label: 'Right end',
+      id: 'other-tree',
+      path: 'M 74 100 Q 66 56 74 32 Q 82 56 74 100 Z',
+      box: [66, 32, 16, 68],
+      label: 'Other tree',
     },
   ],
+
+  // A leaning tower is drawn ROTATED about its base, so a crop of the upright
+  // box would take the wrong pixels. Rather than fake a cut that does not fit
+  // the drawing, it is simply not a puzzle subject.
+  'tower:leaning': [],
 
   // Ground treatments are never the puzzle's subject; they stay on the board.
   hill: [],
@@ -262,14 +416,27 @@ export const FIGURE_PARTS: Record<StaticPrimitiveKind, readonly FigurePart[]> = 
   field: [],
 };
 
-/** The parts for a primitive, or an empty list if it is not a subject. */
-export function partsFor(kind: StaticPrimitiveKind): readonly FigurePart[] {
+/**
+ * The parts for a drawing, or an empty list if it is not a subject.
+ *
+ * The variant is looked up first: a lattice tower and a clock tower are the
+ * same `kind` and share no geometry at all, so cutting them the same way put
+ * empty pieces in a child's hands.
+ */
+export function partsFor(
+  kind: StaticPrimitiveKind,
+  variant?: string,
+): readonly FigurePart[] {
+  if (variant) {
+    const exact = FIGURE_PARTS[`${kind}:${variant}`];
+    if (exact) return exact;
+  }
   return FIGURE_PARTS[kind] ?? [];
 }
 
-/** Primitives that can be the subject of a puzzle. */
-export function isPuzzleSubject(kind: StaticPrimitiveKind): boolean {
-  return partsFor(kind).length >= 2;
+/** Drawings that can be the subject of a puzzle. */
+export function isPuzzleSubject(kind: StaticPrimitiveKind, variant?: string): boolean {
+  return partsFor(kind, variant).length >= 2;
 }
 
 /**

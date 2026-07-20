@@ -24,15 +24,13 @@ import { useFeedback } from '../../../hooks/useFeedback';
 import { useProgress } from '../../../hooks/useProgress';
 import { nextChallenge } from '../../../utils/nextChallenge';
 import { COUNTRIES, getCountry, DEFAULT_COUNTRY } from '../../../constants/countries';
+import { quietCountry } from '../../../constants/quietCountry';
 import { LAYOUT, SPACING } from '../../../constants/nino';
 
 // The cut lives in constants/figureParts.ts: each drawing comes apart along
 // its own anatomy — a roof, a turret, a mountain peak. A part's outline
 // follows the subject, so it only fits its own place and a child can see that
 // from the shape.
-
-/** How long the country's scene is shown before the neutral takes over. */
-const INTRO_MS = 1500;
 
 export default function PuzzleCountryRoute() {
   const { country: code } = useLocalSearchParams<{ country: string }>();
@@ -51,6 +49,17 @@ export default function PuzzleCountryRoute() {
   // and a new array identity every render defeats every callback below it.
   const parts = useMemo(() => partsForCountry(country), [country]);
 
+  // The landscape AROUND the square, drained of colour.
+  //
+  // Both were fully coloured and they competed: a Dutch sky behind a Dutch
+  // windmill puzzle is the same palette twice, so the square stopped reading
+  // as a separate object. The landscape stays — a 2-year-old needs to see
+  // where they are — and gives up its colour instead.
+  //
+  // Memoized: a fresh country identity every render would re-render the whole
+  // skyline, which is the one thing CountryScene's memoization prevents.
+  const backdrop = useMemo(() => quietCountry(country), [country]);
+
   const {
     trayOrder,
     placed,
@@ -68,23 +77,6 @@ export default function PuzzleCountryRoute() {
   const homes = useRef<Record<string, Point>>({});
   const [preview, setPreview] = useState<string | null>(null);
 
-  // THE OPENING REVEAL.
-  //
-  // The country's own scene shows first, so the child sees where this picture
-  // is, and then gives way to the neutral the game is played against. Short
-  // enough that it never feels like waiting.
-  // Derived from which round has finished its reveal, rather than reset by an
-  // effect: setting state synchronously in an effect costs a second render of
-  // the whole board on every restart, and this screen is the one place where
-  // that is most visible.
-  const [revealed, setRevealed] = useState<string | null>(null);
-  const introKey = `${country.code}:${round}`;
-  const intro = revealed !== introKey;
-
-  useEffect(() => {
-    const timer = setTimeout(() => setRevealed(introKey), INTRO_MS);
-    return () => clearTimeout(timer);
-  }, [introKey]);
 
   const reaction = lastEvent === 'placed' ? 'celebrate' : null;
 
@@ -208,7 +200,7 @@ export default function PuzzleCountryRoute() {
   }, [country.code, isComplete, router]);
 
   return (
-    <CountryScene country={country} mode={mode}>
+    <CountryScene country={backdrop} mode={mode}>
       <View style={styles.root}>
         <GameHud onRestart={reset} mascotReaction={reaction} reactionSeq={eventSeq} />
 
@@ -225,7 +217,6 @@ export default function PuzzleCountryRoute() {
               placed={placed}
               highlighted={preview}
               size={boardSize}
-              intro={intro}
               onCellMeasured={onCellMeasured}
             />
           </View>

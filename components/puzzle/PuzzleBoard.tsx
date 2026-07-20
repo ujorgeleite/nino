@@ -2,12 +2,11 @@
 // The picture being assembled.
 //
 // THREE LAYERS, and the order is the design:
-//   1. the BACKGROUND — fixed, and deliberately NEUTRAL once play starts.
-//      The country's own sky is shown first, for a moment, so the child sees
-//      where they are; it then fades to a flat dark neutral. A picture made of
-//      coloured parts needs the strongest possible separation from what is
-//      behind it, and a scenic gradient competes with the very shapes the
-//      child is meant to read. So the scene introduces, and the neutral plays.
+//   1. the BACKGROUND — this country's sky over its ground. Fixed, and the
+//      one COLOURED thing on the screen: the landscape around the square is
+//      greyed (constants/quietCountry.ts) so that every colour a child sees
+//      belongs to the puzzle. The square therefore reads as a lit object in
+//      front of a quiet world, rather than as a window onto more of the same.
 //   2. the GHOST — the whole drawing, very faint. It shows what the picture
 //      will be, which is what makes dragging have a purpose for a child who
 //      cannot hold the goal in their head.
@@ -26,7 +25,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import PuzzleFigure, { PartSocket } from './PuzzleFigure';
-import { HALO } from '../../constants/depth';
+import { castShadow, HALO } from '../../constants/depth';
 import { COLORS, RADII } from '../../constants/nino';
 import type { FigurePart } from '../../constants/figureParts';
 import type { CountryData } from '../../constants/countries';
@@ -38,8 +37,6 @@ type Props = {
   /** The socket a carried piece would land in, if any. */
   highlighted: string | null;
   size: number;
-  /** True while the opening reveal of the country's scene is still showing. */
-  intro: boolean;
   /** Reports a socket's centre in WINDOW coordinates. */
   onCellMeasured: (id: string, centre: { x: number; y: number }) => void;
 };
@@ -50,38 +47,23 @@ export function PuzzleBoard({
   placed,
   highlighted,
   size,
-  intro,
   onCellMeasured,
 }: Props) {
-  const scenery = useSharedValue(1);
-
-  React.useEffect(() => {
-    scenery.value = withTiming(intro ? 1 : 0, { duration: 620 });
-  }, [intro, scenery]);
-
-  const sceneryStyle = useAnimatedStyle(() => ({ opacity: scenery.value }));
-
   return (
     <View style={[styles.frame, { width: size, height: size }]}>
-      {/* 1a. The neutral the game is actually played against. */}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.neutral]} />
-
-      {/* 1b. The country's scene, shown at the start and then faded away. */}
-      <Animated.View
+      {/* 1. The fixed background: this country's sky over its ground. */}
+      <LinearGradient
+        colors={[country.palette.skyThere[0], country.palette.skyThere[1]]}
+        style={StyleSheet.absoluteFill}
         pointerEvents="none"
-        style={[StyleSheet.absoluteFill, sceneryStyle]}
-      >
-        <LinearGradient
-          colors={[country.palette.skyThere[0], country.palette.skyThere[1]]}
-          style={StyleSheet.absoluteFill}
-        />
-        <View
-          style={[
-            styles.ground,
-            { height: size * 0.18, backgroundColor: country.palette.ground },
-          ]}
-        />
-      </Animated.View>
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ground,
+          { height: size * 0.18, backgroundColor: country.palette.ground },
+        ]}
+      />
 
       {/* 2. The ghost: what the picture will be. */}
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
@@ -170,10 +152,10 @@ const styles = StyleSheet.create({
     borderWidth: 5,
     borderColor: COLORS.ninoInk,
     overflow: 'hidden',
+    // The square is the subject of the screen, so it is lit like one: a heavy
+    // drop shadow lifts it off the grey landscape behind it.
+    ...castShadow(1),
   },
-  // Dark, flat and colourless: coloured parts separate from it far better than
-  // from any scene, and nothing on it competes for the child's attention.
-  neutral: { backgroundColor: COLORS.playSurface },
   ground: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   socket: { position: 'absolute' },
 });

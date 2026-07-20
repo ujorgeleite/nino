@@ -35,8 +35,8 @@ async function placeLatency(page: Page): Promise<number> {
     const b = await page.getByTestId(id).boundingBox();
     return { x: b!.x + b!.width / 2, y: b!.y + b!.height / 2 };
   };
-  const from = await centre('piece-r0c0');
-  const to = await centre('cell-r0c0');
+  const from = await centre('piece-circle');
+  const to = await centre('cell-circle');
 
   const t0 = Date.now();
   await page.mouse.move(from.x, from.y);
@@ -53,8 +53,8 @@ async function placeLatency(page: Page): Promise<number> {
   await expect
     .poll(
       async () => {
-        const p = await page.getByTestId('piece-r0c0').boundingBox();
-        const c = await page.getByTestId('cell-r0c0').boundingBox();
+        const p = await page.getByTestId('piece-circle').boundingBox();
+        const c = await page.getByTestId('cell-circle').boundingBox();
         if (!p || !c) return false;
         return (
           Math.hypot(

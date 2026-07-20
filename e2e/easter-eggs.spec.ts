@@ -66,8 +66,8 @@ test.describe('easter eggs', () => {
       const b = await page.getByTestId(id).boundingBox();
       return { x: b!.x + b!.width / 2, y: b!.y + b!.height / 2 };
     };
-    const from = await centre('piece-r0c0');
-    const to = await centre('cell-r0c0');
+    const from = await centre('piece-circle');
+    const to = await centre('cell-circle');
 
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
@@ -82,8 +82,8 @@ test.describe('easter eggs', () => {
 
     await expect
       .poll(async () => {
-        const p = await page.getByTestId('piece-r0c0').boundingBox();
-        const c = await page.getByTestId('cell-r0c0').boundingBox();
+        const p = await page.getByTestId('piece-circle').boundingBox();
+        const c = await page.getByTestId('cell-circle').boundingBox();
         if (!p || !c) return false;
         return (
           Math.hypot(

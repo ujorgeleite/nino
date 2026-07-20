@@ -1,25 +1,21 @@
 // components/puzzle/PuzzleFigure.tsx
-// The country's landmark, drawn once — and croppable.
+// The country's landmark, drawn once — and clippable to a shape.
 //
-// A puzzle piece is not a separate drawing. It is the SAME figure, rendered at
-// full size inside a clipping window that is offset so only one cell shows.
-// That is why the pieces line up perfectly when assembled: they are literally
-// the same picture seen through different holes.
-//
-// The alternative — drawing each piece separately — would need the artwork cut
-// eleven times by hand, which is the category of work this project has already
-// established it cannot verify.
+// A puzzle piece is not a separate drawing. It is the SAME figure, clipped to
+// the shape of the hole it belongs in and offset so the right part shows.
+// That is why a piece always matches its hole exactly: they are generated from
+// one path (`shapePath`), so the promise "this shape fits here" cannot drift.
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Svg, { G, Rect } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, Path, Rect } from 'react-native-svg';
 import { PRIMITIVES, INK, type StaticPrimitiveKind } from '../scene/primitives';
+import { shapePath, type PuzzleShape } from '../../constants/puzzleShapes';
 import type { CountryData, ScenePiece } from '../../constants/countries';
 
 /** Local box every primitive draws into (primitives.tsx contract). */
 const UNIT = 100;
 
-/** Primitives that read as a landmark rather than as ground. */
 const LANDMARKS: StaticPrimitiveKind[] = [
   'tower',
   'castle',
@@ -50,16 +46,17 @@ type Props = {
   country: CountryData;
   /** Rendered size of the WHOLE figure. */
   size: number;
+  /** Draw the artwork faintly, as the board's ghost. */
+  ghost?: boolean;
   /**
-   * Draw as an outline only — the target shape on the board, showing where the
-   * picture will be without giving the answer away.
+   * Clip to one shape's silhouette and crop to it.
+   *
+   * The result is exactly the piece that fills that hole.
    */
-  outline?: boolean;
-  /** Crop window, in cell coordinates. Omit to draw the whole figure. */
-  crop?: { row: number; col: number; rows: number; cols: number };
+  shape?: PuzzleShape;
 };
 
-export function PuzzleFigure({ country, size, outline = false, crop }: Props) {
+export function PuzzleFigure({ country, size, ghost = false, shape }: Props) {
   const piece = figureFor(country);
   if (!piece) return null;
 
@@ -71,38 +68,56 @@ export function PuzzleFigure({ country, size, outline = false, crop }: Props) {
   const { palette } = country;
   const scale = size / UNIT;
 
-  const figure = (
-    <Svg width={size} height={size}>
-      {!outline && (
-        // A soft plate behind the art, so a cropped piece reads as a piece
-        // rather than as floating fragments of line.
-        <Rect x={0} y={0} width={size} height={size} fill={palette.skyThere[1]} />
-      )}
+  const artwork = (
+    <>
+      <Rect x={0} y={0} width={size} height={size} fill={palette.skyThere[1]} />
       <G scale={scale}>
         <Primitive
-          fill={outline ? 'transparent' : (piece.fill ?? palette.structure)}
-          altFill={outline ? 'transparent' : palette.structureAlt}
-          accent={outline ? 'transparent' : palette.accent}
+          fill={piece.fill ?? palette.structure}
+          altFill={palette.structureAlt}
+          accent={palette.accent}
           variant={piece.variant}
         />
       </G>
-    </Svg>
+    </>
   );
 
-  if (!crop) {
-    return <View style={{ width: size, height: size }}>{figure}</View>;
+  // The whole picture, for the board's background.
+  if (!shape) {
+    return (
+      <View style={{ width: size, height: size, opacity: ghost ? 0.9 : 1 }}>
+        <Svg width={size} height={size}>{artwork}</Svg>
+      </View>
+    );
   }
 
-  // The crop: a window one cell wide, with the full figure pushed so that the
-  // wanted cell lands inside it.
-  const cellW = size / crop.cols;
-  const cellH = size / crop.rows;
+  // One shape, clipped out of the picture and cropped to its own bounds.
+  const shapeSize = shape.size * size;
+  const left = shape.cx * size - shapeSize / 2;
+  const top = shape.cy * size - shapeSize / 2;
+  const clipId = `clip-${shape.id}`;
 
   return (
-    <View style={[styles.window, { width: cellW, height: cellH }]}>
-      <View style={{ marginLeft: -crop.col * cellW, marginTop: -crop.row * cellH }}>
-        {figure}
-      </View>
+    <View style={[styles.window, { width: shapeSize, height: shapeSize }]}>
+      <Svg width={shapeSize} height={shapeSize}>
+        <Defs>
+          <ClipPath id={clipId}>
+            <Path d={shapePath(shape.id, shapeSize)} />
+          </ClipPath>
+        </Defs>
+        {/* The artwork is shifted so the shape's region lands in the window. */}
+        <G clipPath={`url(#${clipId})`} x={-left} y={-top}>
+          {artwork}
+        </G>
+        {/* The outline, so the silhouette reads even against busy artwork. */}
+        <Path
+          d={shapePath(shape.id, shapeSize)}
+          fill="none"
+          stroke={INK}
+          strokeWidth={4}
+          strokeLinejoin="round"
+        />
+      </Svg>
     </View>
   );
 }
@@ -111,7 +126,6 @@ const styles = StyleSheet.create({
   window: { overflow: 'hidden' },
 });
 
-/** The ink colour, re-exported so the board can draw matching guide lines. */
 export { INK };
 
 export default PuzzleFigure;

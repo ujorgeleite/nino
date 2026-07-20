@@ -17,7 +17,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   runOnJS,
@@ -27,11 +27,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import PuzzleFigure from './PuzzleFigure';
-import Solid from '../ui/Solid';
 import { useFloat } from '../../hooks/useFloat';
-import { COLORS, RADII } from '../../constants/nino';
+import { contactShadow, castShadow, LIFT_HEIGHT, LIFT_SCALE } from '../../constants/depth';
 import type { CountryData } from '../../constants/countries';
-import type { PuzzleCell } from '../../hooks/usePuzzle';
+import type { PuzzleShape } from '../../constants/puzzleShapes';
 
 const RETURN_SPRING = { damping: 22, stiffness: 420, overshootClamping: true } as const;
 const SEAT_SPRING = { damping: 16, stiffness: 340 } as const;
@@ -43,11 +42,9 @@ export type PlaceResult = {
 
 type Props = {
   country: CountryData;
-  cell: PuzzleCell;
-  rows: number;
-  cols: number;
-  /** Rendered size of this piece on screen. */
-  size: number;
+  shape: PuzzleShape;
+  /** The board's size — the piece is cut from a figure of these proportions. */
+  boardSize: number;
   placed: boolean;
   resolvePlacedOffset?: () => { x: number; y: number } | null;
   /** Bumped on reset so the piece JUMPS home instead of flying across. */
@@ -61,10 +58,8 @@ type Props = {
 
 export function PuzzlePiece({
   country,
-  cell,
-  rows,
-  cols,
-  size,
+  shape,
+  boardSize,
   placed,
   resolvePlacedOffset,
   round = 0,
@@ -81,7 +76,7 @@ export function PuzzlePiece({
   const elevation = useSharedValue(0);
   const held = useSharedValue(false);
 
-  const float = useFloat(cell.id, !placed);
+  const float = useFloat(shape.id, !placed);
 
   const settle = (target: { x: number; y: number } | null, instant = false) => {
     'worklet';
@@ -142,9 +137,23 @@ export function PuzzlePiece({
     opacity: placed && !held.value ? 0 : 1,
   }));
 
-  // The crop is taken from a figure scaled to this piece's size, so the
-  // fragment fills the piece rather than sitting small inside it.
-  const cropFigureSize = size * cols;
+  // The piece is exactly the shape's silhouette, cut from a figure of the
+  // board's proportions — so it matches its hole at the same scale.
+  const size = shape.size * boardSize;
+
+  // Solid cannot be used here: it draws a rounded RECTANGLE, and the whole
+  // point is that this piece is a circle, a star or a triangle. The depth is
+  // applied directly to the shaped SVG instead.
+  const liftStyle = useAnimatedStyle(() => {
+    const e = elevation.value;
+    return {
+      transform: [
+        { translateY: float.offsetY.value - e * LIFT_HEIGHT },
+        { rotate: `${float.tilt.value}deg` },
+        { scale: 1 + e * LIFT_SCALE },
+      ],
+    };
+  });
 
   return (
     <GestureDetector gesture={pan}>
@@ -154,25 +163,9 @@ export function PuzzlePiece({
         accessibilityLabel={accessibilityLabel}
         testID={testID}
       >
-        <Solid
-          width={size}
-          height={size}
-          radius={RADII.sm}
-          backgroundColor={country.palette.skyThere[1]}
-          borderColor={COLORS.paper}
-          borderWidth={4}
-          elevation={elevation}
-          offsetY={float.offsetY}
-          tilt={float.tilt}
-        >
-          <View style={styles.crop}>
-            <PuzzleFigure
-              country={country}
-              size={cropFigureSize}
-              crop={{ row: cell.row, col: cell.col, rows, cols }}
-            />
-          </View>
-        </Solid>
+        <Animated.View style={[castShadow(0.6), contactShadow(0.2), liftStyle]}>
+          <PuzzleFigure country={country} size={boardSize} shape={shape} />
+        </Animated.View>
       </Animated.View>
     </GestureDetector>
   );
@@ -180,7 +173,6 @@ export function PuzzlePiece({
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', justifyContent: 'center' },
-  crop: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 });
 
 export default PuzzlePiece;

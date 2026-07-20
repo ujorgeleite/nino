@@ -13,7 +13,8 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-const CELLS = ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c1', 'r1c2'];
+/** One piece per shape. Shape is what tells a child where it goes. */
+const CELLS = ['circle', 'square', 'triangle', 'star'];
 const COUNTRIES = ['nl', 'de', 'dk', 'ch', 'it'] as const;
 
 type Box = { x: number; y: number; width: number; height: number };

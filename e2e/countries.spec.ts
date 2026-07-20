@@ -102,7 +102,7 @@ test.describe('Puzzle', () => {
       await page.goto(`/games/puzzle/${code}`);
       await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 
-      const cells = ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c1', 'r1c2'];
+      const cells = ['circle', 'square', 'triangle', 'star'];
       for (const id of cells) {
         await expect(page.getByTestId(`cell-${id}`)).toBeVisible();
         await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
@@ -198,7 +198,7 @@ test.describe('layout holds on every country', () => {
       await page.goto(`/games/puzzle/${code}`);
       await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 
-      for (const id of ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c1', 'r1c2']) {
+      for (const id of ['circle', 'square', 'triangle', 'star']) {
         const box = await page.getByTestId(`piece-${id}`).boundingBox();
         expect(box).not.toBeNull();
         // CLAUDE.md rule 3. The iPhone viewport is where this is tight.

@@ -1,21 +1,20 @@
 // components/ui/PuzzleEmblem.tsx
-// The Puzzle tile's emblem: the country's landmark, half assembled.
+// The Puzzle tile's emblem: the country's picture with two holes still open.
 //
-// It shows the actual figure that game builds, with two cells still missing.
-// A child sees both WHAT they will make and THAT it is made of pieces — which
-// is the whole mechanic, said without a word.
+// It shows the actual board that game presents — the artwork, plus shaped
+// sockets. A child sees both WHAT they will make and THAT pieces go into
+// shapes, which is the whole mechanic said without a word.
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import PuzzleFigure from '../puzzle/PuzzleFigure';
+import { PUZZLE_SHAPES, shapePath } from '../../constants/puzzleShapes';
 import { COLORS, RADII } from '../../constants/nino';
 import type { CountryData } from '../../constants/countries';
 
-const ROWS = 2;
-const COLS = 3;
-
-/** Which cells are shown as still missing. Two gaps read as "unfinished". */
-const MISSING = new Set(['r0c2', 'r1c0']);
+/** Which holes read as still empty. Two gaps say "unfinished" without clutter. */
+const OPEN = new Set(['circle', 'star']);
 
 type Props = {
   size?: number;
@@ -23,55 +22,44 @@ type Props = {
 };
 
 export function PuzzleEmblem({ size = 96, country }: Props) {
-  const cellW = size / COLS;
-  const cellH = size / ROWS;
-
   return (
-    <View style={[styles.wrap, { width: size, height: size * (ROWS / COLS) }]}>
-      {Array.from({ length: ROWS }, (_, row) =>
-        Array.from({ length: COLS }, (_, col) => {
-          const id = `r${row}c${col}`;
-          const missing = MISSING.has(id);
-          return (
-            <View
-              key={id}
-              style={[
-                styles.cell,
-                {
-                  width: cellW,
-                  height: cellH,
-                  left: col * cellW,
-                  top: row * cellH,
-                },
-                missing && styles.gap,
-              ]}
-            >
-              {missing ? null : (
-                <PuzzleFigure
-                  country={country}
-                  size={size}
-                  crop={{ row, col, rows: ROWS, cols: COLS }}
+    <View style={[styles.wrap, { width: size, height: size }]}>
+      <PuzzleFigure country={country} size={size} />
+
+      {PUZZLE_SHAPES.map((shape) => {
+        const s = shape.size * size;
+        const left = shape.cx * size - s / 2;
+        const top = shape.cy * size - s / 2;
+        return (
+          <View key={shape.id} style={[styles.hole, { width: s, height: s, left, top }]}>
+            {OPEN.has(shape.id) ? (
+              <Svg width={s} height={s}>
+                <Path
+                  d={shapePath(shape.id, s)}
+                  fill="rgba(38, 25, 15, 0.55)"
+                  stroke={COLORS.ninoInk}
+                  strokeWidth={2.5}
+                  strokeLinejoin="round"
                 />
-              )}
-            </View>
-          );
-        }),
-      )}
+              </Svg>
+            ) : (
+              <PuzzleFigure country={country} size={size} shape={shape} />
+            )}
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: 'center', justifyContent: 'center' },
-  cell: {
-    position: 'absolute',
+  wrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: RADII.sm,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: COLORS.paper,
-    borderRadius: RADII.sm / 3,
   },
-  // An empty socket, so the tile reads as a puzzle in progress.
-  gap: { backgroundColor: 'rgba(51, 36, 28, 0.22)' },
+  hole: { position: 'absolute' },
 });
 
 export default PuzzleEmblem;

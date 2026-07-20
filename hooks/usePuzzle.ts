@@ -13,6 +13,7 @@
 // Toddler UX: no timer, no lives, no score, and a wrong drop costs nothing.
 
 import { useCallback, useMemo, useState } from 'react';
+import { PUZZLE_SHAPES } from '../constants/puzzleShapes';
 import { shuffle } from '../utils/shuffle';
 
 /** A drop this close to a cell's centre counts as a fit. */
@@ -20,11 +21,15 @@ export const PUZZLE_SNAP_RADIUS = 78;
 
 export type Point = { x: number; y: number };
 
-/** One piece: which cell of the grid it is, addressed by row and column. */
+/**
+ * One piece, identified by its SHAPE.
+ *
+ * A shape is the whole point: a circle has exactly one hole it can enter, and
+ * a 2-year-old can see which before they try. Identical rectangular pieces —
+ * the first design — forced them to read fragments of picture instead.
+ */
 export type PuzzleCell = {
   id: string;
-  row: number;
-  col: number;
 };
 
 export type PuzzleEvent = 'lift' | 'placed' | 'rejected' | 'removed' | null;
@@ -47,22 +52,16 @@ export type PuzzleGame = {
   round: number;
 };
 
-function buildCells(rows: number, cols: number): PuzzleCell[] {
-  const cells: PuzzleCell[] = [];
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      cells.push({ id: `r${row}c${col}`, row, col });
-    }
-  }
-  return cells;
+function buildCells(): PuzzleCell[] {
+  return PUZZLE_SHAPES.map((s) => ({ id: s.id }));
 }
 
 function distance(a: Point, b: Point): number {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-export function usePuzzle(rows: number, cols: number): PuzzleGame {
-  const cells = useMemo(() => buildCells(rows, cols), [rows, cols]);
+export function usePuzzle(): PuzzleGame {
+  const cells = useMemo(() => buildCells(), []);
 
   const [trayOrder, setTrayOrder] = useState<string[]>(() =>
     shuffle(cells.map((c) => c.id)),

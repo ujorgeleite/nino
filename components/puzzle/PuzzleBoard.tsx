@@ -1,11 +1,13 @@
 // components/puzzle/PuzzleBoard.tsx
-// The target: the figure's outline with a grid of empty cells to fill.
+// The picture, with shaped holes punched in it.
 //
-// The outline is the whole reason this game works for a 2-year-old. It shows
-// what the picture WILL be, so dragging has a visible purpose — unlike a blank
-// frame, which asks a child to hold the goal in their head.
+// This is a chunky wooden toddler puzzle, not a jigsaw: the board IS the
+// artwork, mostly complete, with four holes of unmistakably different shapes.
+// A circle can only enter the circle. A 2-year-old sees that before they try,
+// which is the whole design.
 //
-// Filled cells show the real artwork. As pieces go in, the picture appears.
+// Every hole is drawn from `shapePath` — the same function that cuts the
+// piece — so the two can never disagree about what fits where.
 
 import React, { useCallback, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -14,57 +16,45 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
 import PuzzleFigure from './PuzzleFigure';
+import { PUZZLE_SHAPES, shapePath, type PuzzleShape } from '../../constants/puzzleShapes';
 import { HALO } from '../../constants/depth';
 import { COLORS, RADII } from '../../constants/nino';
 import type { CountryData } from '../../constants/countries';
-import type { PuzzleCell } from '../../hooks/usePuzzle';
 
 type Props = {
   country: CountryData;
-  cells: readonly PuzzleCell[];
-  rows: number;
-  cols: number;
   placed: Set<string>;
-  /** The cell a carried piece would land in, if any. */
+  /** The hole a carried piece would land in, if any. */
   highlighted: string | null;
   size: number;
-  /** Reports a cell's centre in WINDOW coordinates. */
+  /** Reports a hole's centre in WINDOW coordinates. */
   onCellMeasured: (id: string, centre: { x: number; y: number }) => void;
 };
 
 export function PuzzleBoard({
   country,
-  cells,
-  rows,
-  cols,
   placed,
   highlighted,
   size,
   onCellMeasured,
 }: Props) {
-  const cellW = size / cols;
-  const cellH = size / rows;
-
   return (
     <View style={[styles.frame, { width: size, height: size }]}>
-      {/* The ghost: the whole figure, very faint. The promise of the picture. */}
-      <View pointerEvents="none" style={styles.ghost}>
+      {/* The picture, complete. The holes are punched on top of it. */}
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
         <PuzzleFigure country={country} size={size} />
       </View>
 
-      {cells.map((cell) => (
-        <Cell
-          key={cell.id}
-          cell={cell}
+      {PUZZLE_SHAPES.map((shape) => (
+        <Hole
+          key={shape.id}
+          shape={shape}
           country={country}
-          rows={rows}
-          cols={cols}
-          size={size}
-          width={cellW}
-          height={cellH}
-          filled={placed.has(cell.id)}
-          glowing={highlighted === cell.id}
+          boardSize={size}
+          filled={placed.has(shape.id)}
+          glowing={highlighted === shape.id}
           onMeasured={onCellMeasured}
         />
       ))}
@@ -72,25 +62,17 @@ export function PuzzleBoard({
   );
 }
 
-function Cell({
-  cell,
+function Hole({
+  shape,
   country,
-  rows,
-  cols,
-  size,
-  width,
-  height,
+  boardSize,
   filled,
   glowing,
   onMeasured,
 }: {
-  cell: PuzzleCell;
+  shape: PuzzleShape;
   country: CountryData;
-  rows: number;
-  cols: number;
-  size: number;
-  width: number;
-  height: number;
+  boardSize: number;
   filled: boolean;
   glowing: boolean;
   onMeasured: (id: string, centre: { x: number; y: number }) => void;
@@ -104,33 +86,48 @@ function Cell({
 
   const haloStyle = useAnimatedStyle(() => ({
     opacity: glow.value * HALO.activeOpacity,
-    transform: [{ scale: 1 + glow.value * 0.06 }],
+    transform: [{ scale: 1 + glow.value * 0.1 }],
   }));
 
   const measure = useCallback(() => {
     ref.current?.measureInWindow((x, y, w, h) => {
-      onMeasured(cell.id, { x: x + w / 2, y: y + h / 2 });
+      onMeasured(shape.id, { x: x + w / 2, y: y + h / 2 });
     });
-  }, [cell.id, onMeasured]);
+  }, [shape.id, onMeasured]);
+
+  const s = shape.size * boardSize;
+  const left = shape.cx * boardSize - s / 2;
+  const top = shape.cy * boardSize - s / 2;
+  const d = shapePath(shape.id, s);
 
   return (
     <View
       ref={ref}
       onLayout={measure}
-      testID={`cell-${cell.id}`}
-      style={[
-        styles.cell,
-        { width, height, left: cell.col * width, top: cell.row * height },
-      ]}
+      testID={`cell-${shape.id}`}
+      style={[styles.hole, { width: s, height: s, left, top }]}
     >
-      <Animated.View pointerEvents="none" style={[styles.halo, haloStyle]} />
+      {/* The glow sits behind, in the hole's own silhouette. */}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, haloStyle]}>
+        <Svg width={s} height={s}>
+          <Path d={d} fill={HALO.color} />
+        </Svg>
+      </Animated.View>
+
       {filled ? (
-        <PuzzleFigure
-          country={country}
-          size={size}
-          crop={{ row: cell.row, col: cell.col, rows, cols }}
-        />
-      ) : null}
+        <PuzzleFigure country={country} size={boardSize} shape={shape} />
+      ) : (
+        // The empty socket: recessed, in EXACTLY the shape that fits it.
+        <Svg width={s} height={s}>
+          <Path
+            d={d}
+            fill="rgba(38, 25, 15, 0.55)"
+            stroke={COLORS.ninoInk}
+            strokeWidth={4}
+            strokeLinejoin="round"
+          />
+        </Svg>
+      )}
     </View>
   );
 }
@@ -143,26 +140,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     overflow: 'hidden',
   },
-  // Faint enough to guide, strong enough to read at arm's length.
-  ghost: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.16 },
-  cell: {
-    position: 'absolute',
-    // Hairlines between cells: a child needs to see WHERE a piece goes, not
-    // just roughly that it goes on the board.
-    borderWidth: 1,
-    borderColor: 'rgba(51, 36, 28, 0.18)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  halo: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: HALO.color,
-  },
+  hole: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
 });
 
 export default PuzzleBoard;

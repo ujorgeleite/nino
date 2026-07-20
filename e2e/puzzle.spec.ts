@@ -7,7 +7,8 @@
 
 import { test, expect, type Page } from '@playwright/test';
 
-const CELLS = ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c1', 'r1c2'];
+/** One piece per shape. Shape is what tells a child where it goes. */
+const CELLS = ['circle', 'square', 'triangle', 'star'];
 
 async function openPuzzle(page: Page, code = 'nl') {
   await page.goto(`/games/puzzle/${code}`);
@@ -46,7 +47,7 @@ async function drag(page: Page, id: string, to: { x: number; y: number }) {
 }
 
 test.describe('Puzzle', () => {
-  test('lays out a board and six pieces', async ({ page }) => {
+  test('lays out a board and four shaped pieces', async ({ page }) => {
     await openPuzzle(page);
     for (const id of CELLS) {
       await expect(page.getByTestId(`cell-${id}`)).toBeVisible();
@@ -70,24 +71,24 @@ test.describe('Puzzle', () => {
 
   test('dragging a piece onto its own cell places it', async ({ page }) => {
     await openPuzzle(page);
-    expect(await isPlaced(page, 'r0c0')).toBe(false);
+    expect(await isPlaced(page, 'circle')).toBe(false);
 
-    await drag(page, 'r0c0', await centre(page, 'cell-r0c0'));
+    await drag(page, 'circle', await centre(page, 'cell-circle'));
 
-    expect(await isPlaced(page, 'r0c0')).toBe(true);
+    expect(await isPlaced(page, 'circle')).toBe(true);
   });
 
   test('dropping on the WRONG cell returns the piece', async ({ page }) => {
     await openPuzzle(page);
 
-    await drag(page, 'r0c0', await centre(page, 'cell-r1c2'));
+    await drag(page, 'circle', await centre(page, 'cell-star'));
 
-    expect(await isPlaced(page, 'r0c0')).toBe(false);
-    expect(await isPlaced(page, 'r1c2')).toBe(false);
+    expect(await isPlaced(page, 'circle')).toBe(false);
+    expect(await isPlaced(page, 'star')).toBe(false);
 
     // And the same piece still works afterwards — a miss costs nothing.
-    await drag(page, 'r0c0', await centre(page, 'cell-r0c0'));
-    expect(await isPlaced(page, 'r0c0')).toBe(true);
+    await drag(page, 'circle', await centre(page, 'cell-circle'));
+    expect(await isPlaced(page, 'circle')).toBe(true);
   });
 
   test('assembles the picture and wins', async ({ page }) => {
@@ -124,8 +125,8 @@ test.describe('Puzzle', () => {
     // against the old one sent every piece flying diagonally to the wrong
     // place. A fresh board must simply BE.
     await openPuzzle(page);
-    await drag(page, 'r0c0', await centre(page, 'cell-r0c0'));
-    expect(await isPlaced(page, 'r0c0')).toBe(true);
+    await drag(page, 'circle', await centre(page, 'cell-circle'));
+    expect(await isPlaced(page, 'circle')).toBe(true);
 
     await page.getByRole('button', { name: 'Start again' }).click();
     // Deliberately short: if pieces were animating home, they would still be

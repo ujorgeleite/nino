@@ -51,8 +51,8 @@ test.describe('performance', () => {
 
     // Time from grabbing a piece to it sitting in its cell. Rule 4 wants
     // feedback inside 100ms; the settle spring adds a little on top.
-    const from = await centre('piece-r0c0');
-    const to = await centre('cell-r0c0');
+    const from = await centre('piece-circle');
+    const to = await centre('cell-circle');
     const t0 = Date.now();
 
     await page.mouse.move(from.x, from.y);
@@ -69,8 +69,8 @@ test.describe('performance', () => {
     await expect
       .poll(
         async () => {
-          const p = await page.getByTestId('piece-r0c0').boundingBox();
-          const c = await page.getByTestId('cell-r0c0').boundingBox();
+          const p = await page.getByTestId('piece-circle').boundingBox();
+          const c = await page.getByTestId('cell-circle').boundingBox();
           if (!p || !c) return false;
           return (
             Math.hypot(

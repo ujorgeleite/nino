@@ -180,6 +180,9 @@ lint-fix: ## ESLint with --fix
 check-worklets: ## Catch Reanimated worklet-boundary bugs (invisible on web, fatal on device)
 	node scripts/check-worklets.js
 
+check-offline: ## Prove the app never touches the network
+	npm run check:offline
+
 check-bundle: ## Fail if the shipped assets grow past their budget
 	node scripts/check-bundle.js
 

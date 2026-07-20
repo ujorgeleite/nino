@@ -50,6 +50,19 @@ export default defineConfig({
       name: 'iphone-landscape',
       use: { ...devices['Desktop Chrome'], viewport: { width: 844, height: 390 } },
     },
+    // THE SMALLEST DEVICE THE APP SUPPORTS, and the one that finds the layout
+    // bugs. iPhone SE landscape is 667x375 — 15pt shorter than the iPhone
+    // above, which sounds like nothing and is the difference between a board
+    // that fits and a board that clips.
+    //
+    // Added after an audit found a Shape Fit overflow that neither existing
+    // viewport could reproduce: everything fitted at 390 tall and failed at
+    // 375. A layout suite is only as good as its smallest screen. It is also
+    // the hand-me-down iPad/iPhone a 2-year-old is most likely to be given.
+    {
+      name: 'iphone-se-landscape',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 667, height: 375 } },
+    },
   ],
 
   // Build once, then serve the static export. Deterministic, and much faster

@@ -10,6 +10,7 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Chip from '../ui/Chip';
+import PrivacyNotice from './PrivacyNotice';
 import Glyph from '../ui/Glyph';
 import { COLORS, LAYOUT, RADII, SHADOWS, SPACING, TYPE } from '../../constants/nino';
 
@@ -22,13 +23,18 @@ const PROMISES = [
   { emoji: '🇪🇺', label: 'GDPR-K & COPPA' },
 ];
 
-const LINKS = ['Settings', 'Trip history', 'Contact', 'Privacy'];
+// "Settings" and "Trip history" were listed here and did nothing — neither
+// screen exists. Dead controls in the grown-up panel are worse than no
+// controls: a parent taps one, gets silence, and concludes the app is broken.
+// They are gone. Privacy is real now, and Contact is the address inside it.
 
 type Props = {
   onClose: () => void;
 };
 
 export function ParentPanel({ onClose }: Props) {
+  const [showPrivacy, setShowPrivacy] = React.useState(false);
+
   return (
     <View style={styles.scrim}>
       <View style={styles.card}>
@@ -65,18 +71,22 @@ export function ParentPanel({ onClose }: Props) {
           </Text>
 
           <View style={styles.links}>
-            {LINKS.map((link) => (
-              <Pressable
-                key={link}
-                accessibilityRole="link"
-                accessibilityLabel={link}
-                hitSlop={SPACING.s2}
-                style={({ pressed }) => [styles.link, pressed && styles.pressed]}
-              >
-                <Text style={styles.linkText}>{link}</Text>
-              </Pressable>
-            ))}
+            <Pressable
+              onPress={() => setShowPrivacy((open) => !open)}
+              accessibilityRole="button"
+              accessibilityLabel={showPrivacy ? 'Hide privacy policy' : 'Privacy policy'}
+              accessibilityState={{ expanded: showPrivacy }}
+              hitSlop={SPACING.s2}
+              style={({ pressed }) => [styles.link, pressed && styles.pressed]}
+              testID="privacy-toggle"
+            >
+              <Text style={styles.linkText}>
+                {showPrivacy ? 'Hide privacy policy' : 'Privacy policy'}
+              </Text>
+            </Pressable>
           </View>
+
+          {showPrivacy ? <PrivacyNotice compact /> : null}
         </ScrollView>
       </View>
     </View>

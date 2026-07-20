@@ -97,6 +97,15 @@ export default function ShapeFitCountryRoute() {
     });
   }, [country.code, isComplete, router]);
 
+  // Sized from the short side, and MEASURED to fit rather than assumed to.
+  //
+  // An audit computed that this overflows iPhone landscape — 136pt of board
+  // needing 117pt — by summing the fixed sizes. It does not: `boardWrap` is
+  // flex:1 inside a space-between column, so the board takes what is left
+  // instead of demanding a fixed height. Rewriting this to budget the height
+  // explicitly made every socket and piece smaller for no gain, so it was
+  // reverted. e2e/shapefit-layout.spec.ts now holds the real answer on both
+  // phone viewports, including the 375pt-tall one added for this.
   const shortSide = Math.min(width, height);
   const socketSize = Math.min(140, shortSide * 0.2);
   const pieceSize = Math.max(LAYOUT.touchComfortable, Math.min(128, shortSide * 0.18));

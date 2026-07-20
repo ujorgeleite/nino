@@ -26,8 +26,8 @@ export function MenuScreen({ onOpenParentPanel }: Props) {
   const router = useRouter();
   const { mode, setMode } = useMode();
   const feedback = useFeedback();
-  // The Memory arrangement is the sparser of the two — right for a menu.
-  useMusic(COUNTRIES[0].code, 'memory', mode);
+  // The Puzzle arrangement is the sparser of the two — right for a menu.
+  useMusic(COUNTRIES[0].code, 'puzzle', mode);
 
   const play = () => {
     feedback('tap');

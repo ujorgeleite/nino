@@ -17,10 +17,20 @@ type Props = {
   title: string;
   /** Optional parent-facing detail, e.g. "in 7 tries". */
   detail?: string;
+  /**
+   * The button's words. Defaults to replaying; games that lead somewhere pass
+   * their own, because finishing should open a door rather than loop back.
+   */
+  actionLabel?: string;
   onPlayAgain: () => void;
 };
 
-export function WinOverlay({ title, detail, onPlayAgain }: Props) {
+export function WinOverlay({
+  title,
+  detail,
+  actionLabel = 'Play again',
+  onPlayAgain,
+}: Props) {
   const { play } = useSound();
 
   useEffect(() => {
@@ -46,12 +56,12 @@ export function WinOverlay({ title, detail, onPlayAgain }: Props) {
       <Pressable
         onPress={onPlayAgain}
         accessibilityRole="button"
-        accessibilityLabel="Play again"
+        accessibilityLabel={actionLabel}
         hitSlop={SPACING.s4}
         style={({ pressed }) => [styles.again, pressed && styles.pressed]}
       >
         <Text style={styles.againText} allowFontScaling={false}>
-          Play again
+          {actionLabel}
         </Text>
       </Pressable>
     </View>

@@ -24,53 +24,67 @@ const COUNTRIES = ['nl', 'be', 'de', 'fr', 'gb', 'dk', 'se', 'no', 'ch', 'at', '
 /** Time from opening a route to the board being interactive. */
 async function timeToBoard(page: Page, code: string): Promise<number> {
   const t0 = Date.now();
-  await page.goto(`/games/memory/${code}`);
-  await expect(page.getByTestId('memory-board')).toBeVisible({ timeout: 25_000 });
+  await page.goto(`/games/puzzle/${code}`);
+  await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
   return Date.now() - t0;
 }
 
-/** Time from tapping a card to its front face actually being shown. */
-async function flipLatency(page: Page): Promise<number> {
-  const id = (
-    await page.$$eval('[data-testid^="card-"]', (nodes) =>
-      nodes
-        .map((n) => n.getAttribute('data-testid') || '')
-        .filter((v) => !v.endsWith('-front') && !v.endsWith('-back')),
-    )
-  )[0].replace('card-', '');
+/** Time from grabbing a piece to it sitting in its cell. */
+async function placeLatency(page: Page): Promise<number> {
+  const centre = async (id: string) => {
+    const b = await page.getByTestId(id).boundingBox();
+    return { x: b!.x + b!.width / 2, y: b!.y + b!.height / 2 };
+  };
+  const from = await centre('piece-r0c0');
+  const to = await centre('cell-r0c0');
 
   const t0 = Date.now();
-  await page.getByTestId(`card-${id}`).click();
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) {
+    await page.mouse.move(
+      from.x + ((to.x - from.x) * i) / 8,
+      from.y + ((to.y - from.y) * i) / 8,
+      { steps: 2 },
+    );
+  }
+  await page.mouse.up();
+
   await expect
     .poll(
-      async () =>
-        Number(
-          await page
-            .getByTestId(`card-${id}-front`)
-            .evaluate((el) => getComputedStyle(el).opacity),
-        ),
-      { timeout: 4000, intervals: [16, 16, 16, 32] },
+      async () => {
+        const p = await page.getByTestId('piece-r0c0').boundingBox();
+        const c = await page.getByTestId('cell-r0c0').boundingBox();
+        if (!p || !c) return false;
+        return (
+          Math.hypot(
+            p.x + p.width / 2 - (c.x + c.width / 2),
+            p.y + p.height / 2 - (c.y + c.height / 2),
+          ) < Math.max(c.width, 40) / 1.5
+        );
+      },
+      { timeout: 3000, intervals: [16, 16, 32] },
     )
-    .toBe(1);
+    .toBe(true);
   return Date.now() - t0;
 }
 
 test.describe('performance across countries', () => {
   test('every country opens and responds within budget', async ({ page }) => {
     const opens: number[] = [];
-    const flips: number[] = [];
+    const places: number[] = [];
 
     for (const code of COUNTRIES) {
       opens.push(await timeToBoard(page, code));
-      flips.push(await flipLatency(page));
+      places.push(await placeLatency(page));
     }
 
     const worstOpen = Math.max(...opens);
-    const worstFlip = Math.max(...flips);
+    const worstPlace = Math.max(...places);
 
     // Absolute ceilings.
     expect(worstOpen, `slowest open ${worstOpen}ms`).toBeLessThan(6000);
-    expect(worstFlip, `slowest flip ${worstFlip}ms`).toBeLessThan(1200);
+    expect(worstPlace, `slowest place ${worstPlace}ms`).toBeLessThan(2500);
 
     // No country may be an outlier: the heaviest scene must not cost several
     // times the lightest. This is what catches "someone added 40 mountains".
@@ -96,14 +110,14 @@ test.describe('performance across countries', () => {
   });
 
   test('touring every country does not leak DOM nodes', async ({ page }) => {
-    await page.goto(`/games/memory/${COUNTRIES[0]}`);
-    await expect(page.getByTestId('memory-board')).toBeVisible({ timeout: 25_000 });
+    await page.goto(`/games/puzzle/${COUNTRIES[0]}`);
+    await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
     const count = () => page.evaluate(() => document.querySelectorAll('*').length);
     const baseline = await count();
 
     for (const code of COUNTRIES) {
-      await page.goto(`/games/memory/${code}`);
-      await expect(page.getByTestId('memory-board')).toBeVisible();
+      await page.goto(`/games/puzzle/${code}`);
+      await expect(page.getByTestId('puzzle-board')).toBeVisible();
     }
 
     const after = await count();

@@ -9,9 +9,9 @@ import { test, expect, type Page } from '@playwright/test';
 
 const COUNTRIES = ['nl', 'be', 'de', 'fr', 'gb', 'dk', 'se', 'no', 'ch', 'at', 'it'] as const;
 
-async function openMemory(page: Page, code = 'nl') {
-  await page.goto(`/games/memory/${code}`);
-  await expect(page.getByTestId('memory-board')).toBeVisible({ timeout: 25_000 });
+async function openPuzzle(page: Page, code = 'nl') {
+  await page.goto(`/games/puzzle/${code}`);
+  await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 }
 
 const eggs = (page: Page) => page.locator('[data-testid^="egg-"]');
@@ -19,7 +19,7 @@ const eggs = (page: Page) => page.locator('[data-testid^="egg-"]');
 test.describe('easter eggs', () => {
   test('every country has something to poke', async ({ page }) => {
     for (const code of COUNTRIES) {
-      await openMemory(page, code);
+      await openPuzzle(page, code);
       const count = await eggs(page).count();
       expect(count, `${code} has no interactive scenery`).toBeGreaterThan(0);
     }
@@ -29,7 +29,7 @@ test.describe('easter eggs', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
 
-    await openMemory(page);
+    await openPuzzle(page);
     const url = page.url();
 
     const count = await eggs(page).count();
@@ -40,7 +40,7 @@ test.describe('easter eggs', () => {
 
     // Still in the game, still playable, no errors.
     expect(page.url()).toBe(url);
-    await expect(page.getByTestId('memory-board')).toBeVisible();
+    await expect(page.getByTestId('puzzle-board')).toBeVisible();
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
@@ -49,34 +49,50 @@ test.describe('easter eggs', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(e.message));
 
-    await openMemory(page);
+    await openPuzzle(page);
     const first = eggs(page).first();
     for (let i = 0; i < 25; i++) await first.click({ force: true });
 
-    await expect(page.getByTestId('memory-board')).toBeVisible();
+    await expect(page.getByTestId('puzzle-board')).toBeVisible();
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
-  test('scenery never steals a tap meant for a card', async ({ page }) => {
+  test('scenery never steals a drag meant for a piece', async ({ page }) => {
     // This is the failure that would matter: eggs sit over the whole scene,
-    // and if their hit zones swallowed card taps the game would be unplayable.
-    await openMemory(page);
+    // and if their hit zones swallowed piece drags the game would be unplayable.
+    await openPuzzle(page);
 
-    const id = (
-      await page.$$eval('[data-testid^="card-"]', (nodes) =>
-        nodes
-          .map((n) => n.getAttribute('data-testid') || '')
-          .filter((v) => !v.endsWith('-front') && !v.endsWith('-back')),
-      )
-    )[0].replace('card-', '');
+    const centre = async (id: string) => {
+      const b = await page.getByTestId(id).boundingBox();
+      return { x: b!.x + b!.width / 2, y: b!.y + b!.height / 2 };
+    };
+    const from = await centre('piece-r0c0');
+    const to = await centre('cell-r0c0');
 
-    await page.getByTestId(`card-${id}`).click();
-    await page.waitForTimeout(600);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) {
+      await page.mouse.move(
+        from.x + ((to.x - from.x) * i) / 8,
+        from.y + ((to.y - from.y) * i) / 8,
+        { steps: 2 },
+      );
+    }
+    await page.mouse.up();
 
-    const front = await page
-      .getByTestId(`card-${id}-front`)
-      .evaluate((el) => getComputedStyle(el).opacity);
-    expect(Number(front), 'the card must still flip').toBe(1);
+    await expect
+      .poll(async () => {
+        const p = await page.getByTestId('piece-r0c0').boundingBox();
+        const c = await page.getByTestId('cell-r0c0').boundingBox();
+        if (!p || !c) return false;
+        return (
+          Math.hypot(
+            p.x + p.width / 2 - (c.x + c.width / 2),
+            p.y + p.height / 2 - (c.y + c.height / 2),
+          ) < Math.max(c.width, 40) / 1.5
+        );
+      }, { timeout: 4000 })
+      .toBe(true);
   });
 
   test('scenery never blocks a drag in Shape Fit', async ({ page }) => {

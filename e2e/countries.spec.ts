@@ -27,8 +27,6 @@ async function isSeated(page: Page, itemId: string): Promise<boolean> {
  */
 const COUNTRIES = ['nl', 'be', 'de', 'fr', 'gb', 'dk', 'se', 'no', 'ch', 'at', 'it'] as const;
 
-const FLIP_MS = 600;
-
 async function goToMenu(page: Page) {
   await page.goto('/');
   const play = page.getByRole('button', { name: 'Play' });
@@ -37,19 +35,8 @@ async function goToMenu(page: Page) {
 }
 
 /** Deep-links straight into a game — far faster than clicking through. */
-async function openGame(page: Page, game: 'memory' | 'shapefit', code: string) {
+async function openGame(page: Page, game: 'puzzle' | 'shapefit', code: string) {
   await page.goto(`/games/${game}/${code}`);
-}
-
-const itemOf = (instanceId: string) => instanceId.replace(/-\d+$/, '');
-
-async function cardIds(page: Page): Promise<string[]> {
-  return page.$$eval('[data-testid^="card-"]', (nodes) =>
-    nodes
-      .map((n) => n.getAttribute('data-testid') || '')
-      .filter((id) => !id.endsWith('-front') && !id.endsWith('-back'))
-      .map((id) => id.replace(/^card-/, '')),
-  );
 }
 
 test.describe('the game picker', () => {
@@ -59,10 +46,10 @@ test.describe('the game picker', () => {
 
     for (const code of COUNTRIES) {
       // The grid scrolls, so tiles further down need scrolling into view.
-      const memory = page.getByTestId(`game-memory-${code}`);
+      const puzzle = page.getByTestId(`game-puzzle-${code}`);
       const shapefit = page.getByTestId(`game-shapefit-${code}`);
-      await memory.scrollIntoViewIfNeeded();
-      await expect(memory).toBeVisible();
+      await puzzle.scrollIntoViewIfNeeded();
+      await expect(puzzle).toBeVisible();
       await shapefit.scrollIntoViewIfNeeded();
       await expect(shapefit).toBeVisible();
     }
@@ -81,9 +68,9 @@ test.describe('the game picker', () => {
     const play = await goToMenu(page);
     await play.click({ force: true });
 
-    await expect(page.getByTestId('game-memory-fr')).toHaveAttribute(
+    await expect(page.getByTestId('game-puzzle-fr')).toHaveAttribute(
       'aria-label',
-      'Memory, France',
+      'Puzzle, France',
     );
     await expect(page.getByTestId('game-shapefit-it')).toHaveAttribute(
       'aria-label',
@@ -106,43 +93,45 @@ test.describe('the game picker', () => {
 
 // --- Memory, every country -------------------------------------------------
 
-test.describe('Memory', () => {
+test.describe('Puzzle', () => {
   for (const code of COUNTRIES) {
-    test(`${code}: deals a playable board and can be won`, async ({ page }) => {
+    test(`${code}: assembles its picture and can be won`, async ({ page }) => {
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(e.message));
 
-      await openGame(page, 'memory', code);
-      await expect(page.getByTestId('memory-board')).toBeVisible({ timeout: 25_000 });
+      await page.goto(`/games/puzzle/${code}`);
+      await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 
-      const ids = await cardIds(page);
-      expect(ids, `${code} should deal 10 cards`).toHaveLength(10);
-
-      // The regression that shipped twice: a card showing neither face.
-      for (const id of ids) {
-        const back = await page
-          .getByTestId(`card-${id}-back`)
-          .evaluate((el) => getComputedStyle(el).opacity);
-        expect(Number(back), `${code}/${id} back must be visible`).toBe(1);
+      const cells = ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c1', 'r1c2'];
+      for (const id of cells) {
+        await expect(page.getByTestId(`cell-${id}`)).toBeVisible();
+        await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
       }
 
-      // Play it out.
-      const byItem = new Map<string, string[]>();
-      for (const id of ids) {
-        const list = byItem.get(itemOf(id)) ?? [];
-        list.push(id);
-        byItem.set(itemOf(id), list);
-      }
-      expect(byItem.size, `${code} should have 5 pairs`).toBe(5);
+      const centre = async (testId: string) => {
+        const b = await page.getByTestId(testId).boundingBox();
+        if (!b) throw new Error(`${testId} has no box`);
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      };
 
-      for (const [, [a, b]] of byItem) {
-        await page.getByTestId(`card-${a}`).click();
-        await page.getByTestId(`card-${b}`).click();
-        await page.waitForTimeout(FLIP_MS);
+      for (const id of cells) {
+        const from = await centre(`piece-${id}`);
+        const to = await centre(`cell-${id}`);
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        for (let i = 1; i <= 8; i++) {
+          await page.mouse.move(
+            from.x + ((to.x - from.x) * i) / 8,
+            from.y + ((to.y - from.y) * i) / 8,
+            { steps: 2 },
+          );
+        }
+        await page.mouse.up();
+        await page.waitForTimeout(320);
       }
 
       await expect(page.getByTestId('win-overlay')).toBeVisible();
-      expect(errors, `${code} console errors:\n${errors.join('\n')}`).toEqual([]);
+      expect(errors, `${code} console errors: ${errors.join(' | ')}`).toEqual([]);
     });
   }
 });
@@ -202,15 +191,15 @@ test.describe('Shape Fit', () => {
 
 test.describe('layout holds on every country', () => {
   for (const code of COUNTRIES) {
-    test(`${code}: memory cards meet the 90pt floor and stay on screen`, async ({
+    test(`${code}: puzzle pieces meet the 90pt floor and stay on screen`, async ({
       page,
       viewport,
     }) => {
-      await openGame(page, 'memory', code);
-      await expect(page.getByTestId('memory-board')).toBeVisible({ timeout: 25_000 });
+      await page.goto(`/games/puzzle/${code}`);
+      await expect(page.getByTestId('puzzle-board')).toBeVisible({ timeout: 25_000 });
 
-      for (const id of await cardIds(page)) {
-        const box = await page.getByTestId(`card-${id}`).boundingBox();
+      for (const id of ['r0c0', 'r0c1', 'r0c2', 'r1c0', 'r1c1', 'r1c2']) {
+        const box = await page.getByTestId(`piece-${id}`).boundingBox();
         expect(box).not.toBeNull();
         // CLAUDE.md rule 3. The iPhone viewport is where this is tight.
         expect(box!.width, `${code}/${id} width`).toBeGreaterThanOrEqual(90);

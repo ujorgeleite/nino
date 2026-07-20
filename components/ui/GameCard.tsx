@@ -15,7 +15,7 @@
 // tile cannot convey any other way.
 
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Glyph from './Glyph';
 import CountryTileBackdrop from './CountryTileBackdrop';
 import { COLORS, LAYOUT, RADII, SHADOWS, SPACING } from '../../constants/nino';
@@ -24,11 +24,13 @@ import type { CountryData } from '../../constants/countries';
 
 type Props = {
   country: CountryData;
-  /** The game's emblem — MemoryEmblem or ShapeFitEmblem. */
+  /** The game's emblem — PuzzleEmblem or ShapeFitEmblem. */
   emblem: React.ReactNode;
   /** Parent-facing description, e.g. "Memory, France". Never rendered. */
   accessibilityLabel: string;
   locked?: boolean;
+  /** Finished at least once. Marked so a child can see what is left. */
+  completed?: boolean;
   size?: number;
   mode?: NinoMode;
   onPress?: () => void;
@@ -40,6 +42,7 @@ export function GameCard({
   emblem,
   accessibilityLabel,
   locked = false,
+  completed = false,
   size = 180,
   mode = 'there',
   onPress,
@@ -67,8 +70,15 @@ export function GameCard({
       <View style={[styles.body, locked && styles.dimmed]}>{emblem}</View>
 
       {locked ? (
-        <View style={styles.lock}>
+        <View style={styles.badge}>
           <Glyph name="lock" size={22} color={COLORS.mutedInk} weight={8} />
+        </View>
+      ) : completed ? (
+        // A tick, never a lock: finishing opens things, it never closes them.
+        <View style={[styles.badge, styles.done]}>
+          <Text style={styles.tick} allowFontScaling={false}>
+            ✓
+          </Text>
         </View>
       ) : null}
     </Pressable>
@@ -89,7 +99,7 @@ const styles = StyleSheet.create({
   body: { alignItems: 'center', justifyContent: 'center' },
   // React Native has no grayscale filter; opacity is the honest equivalent.
   dimmed: { opacity: 0.45 },
-  lock: {
+  badge: {
     position: 'absolute',
     top: SPACING.s3,
     right: SPACING.s3,
@@ -102,6 +112,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  done: { backgroundColor: COLORS.green, borderColor: COLORS.paper },
+  tick: { color: COLORS.paper, fontSize: 20, fontWeight: '900' },
 });
 
 export default GameCard;

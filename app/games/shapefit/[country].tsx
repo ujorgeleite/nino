@@ -9,9 +9,9 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import CountryScene from '../../../components/scene/CountryScene';
-import GameHud from '../../../components/memory/GameHud';
+import GameHud from '../../../components/game/GameHud';
 import WoodBoard from '../../../components/shapefit/WoodBoard';
 import DraggablePiece, {
   type DropResult,
@@ -22,15 +22,19 @@ import { useMode } from '../../../hooks/useMode';
 import { useMusic } from '../../../hooks/useMusic';
 import { useFeedback } from '../../../hooks/useFeedback';
 import { useItemVoice } from '../../../hooks/useItemVoice';
-import { getCountry, DEFAULT_COUNTRY } from '../../../constants/countries';
+import { useProgress } from '../../../hooks/useProgress';
+import { nextChallenge } from '../../../utils/nextChallenge';
+import { COUNTRIES, getCountry, DEFAULT_COUNTRY } from '../../../constants/countries';
 import { LAYOUT, SPACING } from '../../../constants/nino';
 
 export default function ShapeFitCountryRoute() {
   const { country: code } = useLocalSearchParams<{ country: string }>();
   const country = getCountry(code) ?? DEFAULT_COUNTRY;
 
+  const router = useRouter();
   const { mode } = useMode();
   const feedback = useFeedback();
+  const { isComplete, markComplete } = useProgress();
   const sayItem = useItemVoice();
   const { width, height } = useWindowDimensions();
   useMusic(country.code, 'shapefit', mode);
@@ -46,6 +50,7 @@ export default function ShapeFitCountryRoute() {
     lastEvent,
     lastItemId,
     eventSeq,
+    round,
   } = useShapeFitNL(country.items);
 
   // Everything measured in WINDOW space.
@@ -71,6 +76,27 @@ export default function ShapeFitCountryRoute() {
   // BIGGER THAN BEFORE. The old sizing capped pieces at 96pt; a 2-year-old
   // reaches for the biggest thing on screen, and this game lives or dies on
   // whether the pieces invite a grab.
+  // Record the win once, so the picker can mark it and the next challenge
+  // can skip it.
+  useEffect(() => {
+    if (isWon) markComplete(`shapefit-${country.code}`);
+  }, [isWon, country.code, markComplete]);
+
+  /** Finishing opens a door: the same game, in a country not yet done. */
+  const goNext = useCallback(() => {
+    const next = nextChallenge(
+      COUNTRIES.map((c) => ({
+        code: c.code,
+        completed: isComplete(`shapefit-${c.code}`),
+      })),
+      country.code,
+    );
+    router.replace({
+      pathname: '/games/shapefit/[country]',
+      params: { country: next },
+    });
+  }, [country.code, isComplete, router]);
+
   const shortSide = Math.min(width, height);
   const socketSize = Math.min(140, shortSide * 0.2);
   const pieceSize = Math.max(LAYOUT.touchComfortable, Math.min(128, shortSide * 0.18));
@@ -157,6 +183,7 @@ export default function ShapeFitCountryRoute() {
                     // Resolved by the piece when it needs it, so the parent
                     // never reads a ref during its own render.
                     resolveSeatedOffset={() => seatedOffset(item.id)}
+                    round={round}
                     onGrab={() => liftPiece(item.id)}
                     onDragMove={(point) => onDragMove(item.id, point)}
                     onDrop={(point) => handleDrop(item.id, point)}
@@ -170,7 +197,14 @@ export default function ShapeFitCountryRoute() {
         </View>
       </View>
 
-      {isWon ? <WinOverlay title="All in place!" onPlayAgain={reset} /> : null}
+      {isWon ? (
+        <WinOverlay
+          title="All in place!"
+          detail={country.name}
+          actionLabel="Next place"
+          onPlayAgain={goNext}
+        />
+      ) : null}
     </CountryScene>
   );
 }

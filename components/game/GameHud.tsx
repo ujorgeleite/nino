@@ -1,7 +1,9 @@
-// components/memory/GameHud.tsx
-// The in-game top bar: home / restart / mute on the left, progress rail in the
-// centre, Nino bobbing on the right — §6. Shared by both games (Shape Fit
-// passes no rail).
+// components/game/GameHud.tsx
+// The in-game top bar: home / restart / mute on the left, an optional slot in
+// the centre, Nino bobbing on the right.
+//
+// Shared by both games, which is why it no longer lives under components/memory
+// — that directory is gone along with the game it was named for.
 
 import React from 'react';
 import { StyleSheet, View } from 'react-native';

@@ -34,7 +34,7 @@ import type { NinoMode } from '../constants/nino';
  * Plays a country's loop for as long as the calling screen is mounted.
  *
  * @param countryCode ISO code, or undefined to play nothing.
- * @param game        which arrangement — Memory is sparse, Shape Fit pulsed.
+ * @param game        which arrangement — Puzzle is sparse, Shape Fit pulsed.
  * @param mode        There plays at full ambient level, Back quieter.
  */
 export function useMusic(
@@ -45,7 +45,7 @@ export function useMusic(
   const { muted } = useSound();
 
   // Created once with a placeholder source; every track swaps into it.
-  const player = useAudioPlayer(MUSIC['nl-memory']);
+  const player = useAudioPlayer(MUSIC['nl-puzzle']);
   const currentSource = useRef<number | null>(null);
 
   // --- Source: only touched when the country actually changes --------------

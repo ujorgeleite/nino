@@ -159,20 +159,20 @@ test.describe('Shape Fit NL', () => {
     await expect(overlay).toContainText('All in place!');
   });
 
-  test('play again clears the board back to five loose pieces', async ({ page }) => {
+  test('finishing offers the NEXT place, not a replay', async ({ page }) => {
+    // The old button replayed the same board, which for a child who just
+    // succeeded is the least interesting possible next thing.
     await openShapeFit(page);
     for (const item of ITEMS) {
       await dragTo(page, item, await centreOf(page.getByTestId(`socket-${item}`)));
     }
     await expect(page.getByTestId('win-overlay')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Play again' }).click();
-    await expect(page.getByTestId('win-overlay')).toBeHidden();
-    await page.waitForTimeout(SETTLE_MS);
+    await page.getByRole('button', { name: 'Next place' }).click();
 
-    for (const item of ITEMS) {
-      expect(await isSeated(page, item)).toBe(false);
-    }
+    await expect(page.locator('[data-testid^="socket-"]').first()).toBeVisible();
+    expect(page.url()).toContain('/games/shapefit/');
+    expect(page.url()).not.toContain('/shapefit/nl');
   });
 
   test('restart mid-game returns seated pieces to the tray', async ({ page }) => {
@@ -206,6 +206,6 @@ test.describe('Shape Fit NL', () => {
   test('home returns to the picker', async ({ page }) => {
     await openShapeFit(page);
     await page.getByRole('button', { name: 'Home' }).click();
-    await expect(page.getByTestId('game-memory-nl')).toBeVisible();
+    await expect(page.getByTestId('game-puzzle-nl')).toBeVisible();
   });
 });

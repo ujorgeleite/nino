@@ -44,6 +44,16 @@ export type ShapeFitGame = {
   /** The item id involved in the last event — lets the screen play its voice. */
   lastItemId: string | null;
   eventSeq: number;
+  /**
+   * Increments on every reset.
+   *
+   * A new round RESHUFFLES the tray, so each piece lands in a different slot.
+   * Pieces watch this to know they must JUMP home rather than spring: springing
+   * would animate from a seated offset measured against the old slot toward a
+   * zero that now means somewhere else, and every piece would fly diagonally
+   * across the screen to the wrong place. That bug shipped.
+   */
+  round: number;
 };
 
 function distance(a: Point, b: Point): number {
@@ -63,6 +73,7 @@ export function useShapeFitNL(
   const [lastEvent, setLastEvent] = useState<ShapeFitEvent>(null);
   const [lastItemId, setLastItemId] = useState<string | null>(null);
   const [eventSeq, setEventSeq] = useState(0);
+  const [round, setRound] = useState(0);
 
   const emit = useCallback(
     (event: Exclude<ShapeFitEvent, null>, itemId: string | null = null) => {
@@ -119,6 +130,7 @@ export function useShapeFitNL(
     setLastItemId(null);
     setEventSeq(0);
     setTrayOrder(shuffle(items.map((i) => i.id)));
+    setRound((n) => n + 1);
   }, [items]);
 
   return {
@@ -132,5 +144,6 @@ export function useShapeFitNL(
     lastEvent,
     lastItemId,
     eventSeq,
+    round,
   };
 }

@@ -17,8 +17,8 @@
 //      Italy, a carillon for the Low Countries. Instrumentation carries far
 //      more of "where am I" than key or mode ever could.
 //   2. Each GAME gets its own arrangement of that instrument:
-//      - MEMORY is sparse and suspended. The child is remembering; the music
-//        should leave room to think, so notes are fewer and longer.
+//      - PUZZLE is sparse and suspended. The child is studying a picture; the
+//        music should leave room to think, so notes are fewer and longer.
 //      - SHAPE FIT is gently pulsed. The child is doing; a soft repeating
 //        figure supports action without ever driving it.
 //
@@ -50,7 +50,7 @@ const BARS = 4;
 const BEATS_PER_BAR = 4;
 
 /** The two arrangements. */
-const GAMES = ['memory', 'shapefit'];
+const GAMES = ['puzzle', 'shapefit'];
 
 // ---------------------------------------------------------------------------
 // Theory
@@ -302,13 +302,13 @@ const INSTRUMENTS = {
 // ---------------------------------------------------------------------------
 
 /**
- * MEMORY: sparse and suspended.
+ * PUZZLE: sparse and suspended.
  *
- * The child is trying to remember where something was. Music that moves is
- * music that interrupts, so this is mostly held chords with occasional single
- * notes floating over them.
+ * The child is studying a picture and deciding where a piece goes. Music that
+ * moves is music that interrupts, so this is mostly held chords with the odd
+ * single note floating over them.
  */
-const MEMORY_STYLE = {
+const PUZZLE_STYLE = {
   chordGain: 0.13,
   chordSustain: 0.98,
   melodyNotesPerBar: [1, 2], // min, max
@@ -333,7 +333,7 @@ const SHAPEFIT_STYLE = {
   pulse: { everyBeats: 2, gain: 0.08, octave: 3 },
 };
 
-const STYLES = { memory: MEMORY_STYLE, shapefit: SHAPEFIT_STYLE };
+const STYLES = { puzzle: PUZZLE_STYLE, shapefit: SHAPEFIT_STYLE };
 
 // ---------------------------------------------------------------------------
 // Composition

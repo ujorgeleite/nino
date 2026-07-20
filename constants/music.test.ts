@@ -11,7 +11,7 @@ import { createHash } from 'crypto';
 import { COUNTRIES } from './countries';
 import { MUSIC, MUSIC_VOLUME, musicFor, type MusicGame } from './music';
 
-const GAMES: MusicGame[] = ['memory', 'shapefit'];
+const GAMES: MusicGame[] = ['puzzle', 'shapefit'];
 
 describe('music registry', () => {
   it('ships a track for every country and every game', () => {
@@ -92,8 +92,8 @@ describe('music registry', () => {
 
   it('returns undefined rather than throwing for bad input', () => {
     // A malformed route must leave the screen silent, never crashed.
-    expect(musicFor(undefined, 'memory')).toBeUndefined();
-    expect(musicFor('zz', 'memory')).toBeUndefined();
+    expect(musicFor(undefined, 'puzzle')).toBeUndefined();
+    expect(musicFor('zz', 'puzzle')).toBeUndefined();
     expect(musicFor('nl', undefined)).toBeUndefined();
   });
 

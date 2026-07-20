@@ -38,39 +38,53 @@ test.describe('performance', () => {
     expect(elapsed, `menu took ${elapsed}ms`).toBeLessThan(6000);
   });
 
-  test('a card responds to a tap within the feedback budget', async ({ page }) => {
+  test('a piece responds to a drag within the feedback budget', async ({ page }) => {
     const play = await toMenu(page);
     await play.click({ force: true });
-    await page.getByTestId('game-memory-nl').click();
-    await expect(page.getByTestId('memory-board')).toBeVisible();
+    await page.getByTestId('game-puzzle-nl').click();
+    await expect(page.getByTestId('puzzle-board')).toBeVisible();
 
-    const id = (
-      await page.$$eval('[data-testid^="card-"]', (nodes) =>
-        nodes
-          .map((n) => n.getAttribute('data-testid') || '')
-          .filter((v) => !v.endsWith('-front') && !v.endsWith('-back')),
-      )
-    )[0].replace('card-', '');
+    const centre = async (id: string) => {
+      const b = await page.getByTestId(id).boundingBox();
+      return { x: b!.x + b!.width / 2, y: b!.y + b!.height / 2 };
+    };
 
-    // Time from the tap to the front face actually being shown. CLAUDE.md
-    // rule 4 wants feedback inside 100ms; the flip itself is 380ms by design,
-    // so the budget here covers "the animation started promptly and finished".
+    // Time from grabbing a piece to it sitting in its cell. Rule 4 wants
+    // feedback inside 100ms; the settle spring adds a little on top.
+    const from = await centre('piece-r0c0');
+    const to = await centre('cell-r0c0');
     const t0 = Date.now();
-    await page.getByTestId(`card-${id}`).click();
+
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) {
+      await page.mouse.move(
+        from.x + ((to.x - from.x) * i) / 8,
+        from.y + ((to.y - from.y) * i) / 8,
+        { steps: 2 },
+      );
+    }
+    await page.mouse.up();
+
     await expect
       .poll(
-        async () =>
-          Number(
-            await page
-              .getByTestId(`card-${id}-front`)
-              .evaluate((el) => getComputedStyle(el).opacity),
-          ),
-        { timeout: 3000, intervals: [16, 16, 16, 32] },
+        async () => {
+          const p = await page.getByTestId('piece-r0c0').boundingBox();
+          const c = await page.getByTestId('cell-r0c0').boundingBox();
+          if (!p || !c) return false;
+          return (
+            Math.hypot(
+              p.x + p.width / 2 - (c.x + c.width / 2),
+              p.y + p.height / 2 - (c.y + c.height / 2),
+            ) < Math.max(c.width, 40) / 1.5
+          );
+        },
+        { timeout: 3000, intervals: [16, 16, 32] },
       )
-      .toBe(1);
-    const elapsed = Date.now() - t0;
+      .toBe(true);
 
-    expect(elapsed, `flip took ${elapsed}ms`).toBeLessThan(900);
+    const elapsed = Date.now() - t0;
+    expect(elapsed, `place took ${elapsed}ms`).toBeLessThan(2000);
   });
 
   test('navigating between every screen leaves no console errors', async ({ page }) => {
@@ -82,17 +96,17 @@ test.describe('performance', () => {
 
     const play = await toMenu(page);
     await play.click({ force: true });
-    await expect(page.getByTestId('game-memory-nl')).toBeVisible();
+    await expect(page.getByTestId('game-puzzle-nl')).toBeVisible();
 
-    await page.getByTestId('game-memory-nl').click();
-    await expect(page.getByTestId('memory-board')).toBeVisible();
+    await page.getByTestId('game-puzzle-nl').click();
+    await expect(page.getByTestId('puzzle-board')).toBeVisible();
     await page.getByRole('button', { name: 'Home' }).click();
 
     await page.getByTestId('game-shapefit-nl').click();
     await expect(page.getByTestId('socket-tulip')).toBeVisible();
     await page.getByRole('button', { name: 'Home' }).click();
 
-    await expect(page.getByTestId('game-memory-nl')).toBeVisible();
+    await expect(page.getByTestId('game-puzzle-nl')).toBeVisible();
     expect(errors, errors.join('\n')).toEqual([]);
   });
 
@@ -138,11 +152,11 @@ test.describe('performance', () => {
     expect(slowest / fastest, 'later drags must not degrade').toBeLessThan(3);
   });
 
-  test('replaying many times does not leak DOM nodes', async ({ page }) => {
+  test('restarting many times does not leak DOM nodes', async ({ page }) => {
     const play = await toMenu(page);
     await play.click({ force: true });
-    await page.getByTestId('game-memory-nl').click();
-    await expect(page.getByTestId('memory-board')).toBeVisible();
+    await page.getByTestId('game-puzzle-nl').click();
+    await expect(page.getByTestId('puzzle-board')).toBeVisible();
 
     const count = () => page.evaluate(() => document.querySelectorAll('*').length);
     const before = await count();
@@ -153,8 +167,6 @@ test.describe('performance', () => {
     }
 
     const after = await count();
-    // A restart rebuilds the board; the node count should return to roughly
-    // where it started, not climb with every round.
-    expect(after, `nodes ${before} → ${after}`).toBeLessThan(before * 1.25);
+    expect(after, `nodes ${before} -> ${after}`).toBeLessThan(before * 1.25);
   });
 });

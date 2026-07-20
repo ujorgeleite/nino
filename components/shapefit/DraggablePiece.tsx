@@ -30,7 +30,7 @@
  * gesture get this exemption, and there are two of them.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -71,6 +71,15 @@ type Props = {
    * fragile and flagged by react-hooks/refs.
    */
   resolveSeatedOffset?: () => { x: number; y: number } | null;
+  /**
+   * Bumped when a new round starts.
+   *
+   * A new round reshuffles the tray, so this piece may now live in a different
+   * slot. It must JUMP to its new home, not spring: a spring would animate
+   * from an offset measured against the OLD slot toward a zero that now means
+   * somewhere else, sending every piece flying to the wrong place.
+   */
+  round?: number;
   onGrab: () => void;
   /** Called continuously while dragging, in window coordinates. */
   onDragMove?: (point: { x: number; y: number }) => void;
@@ -85,6 +94,7 @@ export function DraggablePiece({
   size,
   seated,
   resolveSeatedOffset,
+  round = 0,
   onGrab,
   onDragMove,
   onDrop,
@@ -110,11 +120,21 @@ export function DraggablePiece({
    * writes shared values. Marking it as one is also what stops
    * react-hooks/immutability reading these as render-time mutations.
    */
-  const settle = (target: { x: number; y: number } | null) => {
+  const settle = (target: { x: number; y: number } | null, instant = false) => {
     'worklet';
-    const spring = target ? SEAT_SPRING : RETURN_SPRING;
     restX.value = target?.x ?? 0;
     restY.value = target?.y ?? 0;
+
+    if (instant) {
+      // A fresh board is simply LAID OUT. Animating into it means animating
+      // from a position that no longer means anything.
+      dx.value = restX.value;
+      dy.value = restY.value;
+      elevation.value = 0;
+      return;
+    }
+
+    const spring = target ? SEAT_SPRING : RETURN_SPRING;
     dx.value = withSpring(restX.value, spring);
     dy.value = withSpring(restY.value, spring);
     elevation.value = withTiming(0, { duration: 180 });
@@ -122,14 +142,18 @@ export function DraggablePiece({
 
   // Follow the seated position when the game state changes from outside —
   // a restart, or the piece being placed by something other than this drag.
+  const lastRound = useRef(round);
+
   useEffect(() => {
     // Read inside the effect, after layout has committed — never during render.
     const offset = seated ? (resolveSeatedOffset?.() ?? null) : null;
-    settle(offset);
+    const isNewRound = round !== lastRound.current;
+    lastRound.current = round;
+    settle(offset, isNewRound);
     // `settle` writes shared values, which are stable identities; including it
     // here would re-run the effect on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [seated]);
+  }, [seated, round]);
 
   function resolve(point: { x: number; y: number }) {
     const result = onDrop(point);

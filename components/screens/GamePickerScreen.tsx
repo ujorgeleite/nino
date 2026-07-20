@@ -18,16 +18,17 @@ import { useRouter } from 'expo-router';
 import CountryScene from '../scene/CountryScene';
 import GameCard from '../ui/GameCard';
 import HudButton from '../ui/HudButton';
-import MemoryEmblem from '../ui/MemoryEmblem';
+import PuzzleEmblem from '../ui/PuzzleEmblem';
 import ShapeFitEmblem from '../ui/ShapeFitEmblem';
 import { COUNTRIES, type CountryData, type CountryItem } from '../../constants/countries';
 import { useMode } from '../../hooks/useMode';
 import { useFeedback } from '../../hooks/useFeedback';
 import { useRecentGames } from '../../hooks/useRecentGames';
+import { useProgress } from '../../hooks/useProgress';
 import { arrangeGames } from '../../utils/arrangeGames';
 import { COLORS, LAYOUT, SPACING, TYPE } from '../../constants/nino';
 
-type GameKind = 'memory' | 'shapefit';
+type GameKind = 'puzzle' | 'shapefit';
 
 type Entry = {
   id: string;
@@ -42,9 +43,9 @@ type Entry = {
 /**
  * Every playable game: two per country, flattened.
  *
- * Memory uses the country's monument as its signature so the pair reads as
- * "this place"; Shape Fit uses the animal, so the two tiles for one country
- * are never identical at a glance.
+ * The Puzzle tile shows the country's monument, because that IS what the
+ * puzzle assembles; Shape Fit shows the animal, so the two tiles for one
+ * country are never identical at a glance.
  */
 function buildEntries(): Entry[] {
   const pick = (c: CountryData, role: CountryItem['role']) =>
@@ -52,8 +53,8 @@ function buildEntries(): Entry[] {
 
   return COUNTRIES.flatMap((country) => [
     {
-      id: `memory-${country.code}`,
-      kind: 'memory' as const,
+      id: `puzzle-${country.code}`,
+      kind: 'puzzle' as const,
       country,
       countryCode: country.code,
       signature: pick(country, 'monument'),
@@ -74,6 +75,7 @@ export function GamePickerScreen() {
   const feedback = useFeedback();
   const { width } = useWindowDimensions();
   const { recent, remember, ready } = useRecentGames();
+  const { isComplete } = useProgress();
 
   // One seed per visit to this screen. A lazy useState initializer, not a ref
   // read during render: Math.random() is impure and must not run in the render
@@ -139,11 +141,15 @@ export function GamePickerScreen() {
               testID={`game-${entry.id}`}
               // Parent-facing only; the child navigates by scene and emblem.
               accessibilityLabel={`${
-                entry.kind === 'memory' ? 'Memory' : 'Shape Fit'
-              }, ${entry.country.name}`}
+                entry.kind === 'puzzle' ? 'Puzzle' : 'Shape Fit'
+              }, ${entry.country.name}${isComplete(entry.id) ? ', finished' : ''}`}
+              completed={isComplete(entry.id)}
               emblem={
-                entry.kind === 'memory' ? (
-                  <MemoryEmblem size={tile * 0.52} emoji={entry.signature.emoji} />
+                entry.kind === 'puzzle' ? (
+                  <PuzzleEmblem
+                    size={tile * 0.56}
+                    country={entry.country}
+                  />
                 ) : (
                   <ShapeFitEmblem
                     size={tile * 0.6}
@@ -158,9 +164,9 @@ export function GamePickerScreen() {
                 // Object form for a dynamic route: unambiguous on every
                 // platform, and type-checked instead of cast past.
                 router.push(
-                  entry.kind === 'memory'
+                  entry.kind === 'puzzle'
                     ? {
-                        pathname: '/games/memory/[country]',
+                        pathname: '/games/puzzle/[country]',
                         params: { country: entry.country.code },
                       }
                     : {

@@ -23,6 +23,17 @@ module.exports = [
     },
   },
   {
+    // Build-time Node scripts, not app code — Node globals are legitimate here.
+    files: ['scripts/**/*.js', '*.config.js', 'jest.resolver.js'],
+    languageOptions: {
+      globals: { __dirname: 'readonly', module: 'writable', require: 'readonly', Buffer: 'readonly', process: 'readonly' },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-console': 'off',
+    },
+  },
+  {
     // Jest mocks must use require() — the factory runs before ESM imports
     // are hoisted, so import syntax is not an option.
     files: ['jest.setup.ts', '**/*.test.ts', '**/*.test.tsx'],

@@ -1,8 +1,8 @@
-# PRODUCT.md — Pedrinho Travels
+# PRODUCT.md — There & Back
 
 ## Vision
 The app that saves parents on trips. A collection of offline mini-games
-for toddlers aged 2–5, themed around travel and adventure. The mascot Pedro
+for toddlers aged 2–5, themed around travel and adventure. The mascot Nino
 guides children through games with animations and sounds, no reading required.
 
 ## Target audience
@@ -24,9 +24,9 @@ guides children through games with animations and sounds, no reading required.
 ## MVP scope — Game 1: Memory Match
 - 6 pairs of travel-themed cards (12 cards total)
 - Cards look like wooden puzzle pieces (Skia wood grain)
-- Pedro reacts: floats at top, celebrates matches, gentle "oops" on mismatch
+- Nino reacts: floats at top, celebrates matches, gentle "oops" on mismatch
 - No timer, no lives, no score pressure
-- Win condition: all pairs found → big Pedro celebration (Lottie) + sound
+- Win condition: all pairs found → big Nino celebration (Lottie) + sound
 
 ## Content: travel card pairs
 | ID | Emoji | Label |
@@ -39,4 +39,4 @@ guides children through games with animations and sounds, no reading required.
 | camera | 📷 | Câmera |
 
 These emojis are placeholders. Final assets will be custom illustrations
-matching Pedro's art style, commissioned after mascot design is finalized.
+matching Nino's art style, commissioned after mascot design is finalized.

@@ -1,4 +1,4 @@
-# CLAUDE.md — Pedrinho Travels
+# CLAUDE.md — There & Back
 ## Project harness — read this before every task
 
 > ⚠️ Expo moves fast. Before writing native/Expo code, read the exact versioned
@@ -6,10 +6,34 @@
 > (This project runs **Expo SDK 57**, not SDK 51 — see TECH_STACK.md.)
 
 ### What this project is
-A children's iPad game app named **Pedrinho Travels**.
-The mascot is **Pedro**, a toddler boy with curly dark brown hair,
+A children's iPad game app named **There & Back**.
+The mascot is **Nino**, a toddler boy with curly dark brown hair,
 big expressive eyes, and chubby cheeks.
-The theme is travel and adventure.
+The theme is travel and adventure — the outbound journey ("there")
+and the return ("back"), which is also the app's two-mode
+day/night visual system.
+
+> Renamed from "Pedrinho Travels" / mascot "Pedro". Some identifiers still
+> carry the old name — `slug`, iOS `bundleIdentifier`, Android `package`,
+> and the repo directory. Those were left alone deliberately: changing a
+> bundle ID changes the app's identity for the App Store, provisioning and
+> IAP. Decide that separately.
+
+### The two modes are a behaviour contract
+**There ☀️ is scattered and playful. Back 🌙 is aligned and calm.**
+This governs layout, motion amplitude and mascot rhythm — not just colour.
+Back mode lowers stimulation for the end of the day; visual disorder is
+stimulating, alignment is settling. Any screen that lays elements out must
+read the mode and respond. Full rules in `docs/DESIGN_SYSTEM.md`.
+
+### Design system
+**`constants/nino.ts` is the source of truth for all visual tokens.**
+Documented in `docs/DESIGN_SYSTEM.md`.
+`constants/theme.ts` is a secondary sub-system, scoped to the Skia
+wood-card rendering only.
+Mascot art: `assets/mascot/nino-head.svg`, `nino-full.svg`.
+Fonts: Baloo 2 + Nunito, bundled locally via `@expo-google-fonts`
+(no network — rule 7 holds).
 
 ### Primary target user
 **Age: 2 years old.**
@@ -36,7 +60,7 @@ Reference apps (study these before building any UI):
 - react-native-reanimated (all animations — UI thread, 60fps)
 - react-native-gesture-handler (all gestures)
 - @shopify/react-native-skia (wood texture rendering, advanced graphics)
-- lottie-react-native (Pedro mascot animations)
+- lottie-react-native (Nino mascot animations)
 - expo-haptics (tactile feedback on every interaction)
 - expo-audio (sound effects and background music)
 - expo-keep-awake (prevent screen sleep during play)
@@ -49,7 +73,7 @@ Reference apps (study these before building any UI):
 - `constants/` — game content, theme tokens, sound refs
 - `utils/` — pure functions (shuffle, math helpers)
 - `docs/` — all spec and guideline files
-- `assets/lottie/` — Lottie JSON files for Pedro animations
+- `assets/lottie/` — Lottie JSON files for Nino animations
 - `assets/sounds/` — MP3 files (wood-tap, match, no-match, win)
 
 ### Skills (`.claude/skills/`)

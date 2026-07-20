@@ -1,30 +1,45 @@
 ---
 name: sync-design-tokens
-description: Keeps constants/theme.ts, constants/cards.ts and constants/sounds.ts in sync with docs/DESIGN_SYSTEM.md and docs/ANIMATION_GUIDELINES.md. Use when changing a design token, adding a color or timing, or when docs and code appear to disagree about a value.
+description: Keeps constants/nino.ts (the primary design system), constants/theme.ts, cards.ts and sounds.ts in sync with docs/DESIGN_SYSTEM.md and docs/ANIMATION_GUIDELINES.md. Use when changing a design token, adding a color or timing, or when docs and code appear to disagree about a value.
 ---
 
 # sync-design-tokens — docs and code tell the same story
 
-`docs/DESIGN_SYSTEM.md` claims to be the source of truth for `constants/theme.ts`.
-The project is one commit old and they have **already diverged**. Design systems
-do not fail loudly — they erode one unremarked value at a time until nobody trusts
-the docs and everyone reads the code.
+`constants/nino.ts` is the source of truth for all visual tokens;
+`docs/DESIGN_SYSTEM.md` describes it. Design systems do not fail loudly — they
+erode one unremarked value at a time until nobody trusts the docs and everyone
+reads the code.
 
-## Known divergences (fix these on first run)
+## The two token files
 
-| Doc says | Code says | Resolution |
-|---|---|---|
-| `woodGrain` | `woodGrainRgba` in `theme.ts` | Code wins — the name states the format. Update the doc. |
-| *(absent)* | `errorRed: '#FF5252'` in `theme.ts` | Code wins — the token is in use. Add it to the doc. |
+| File | Role |
+|---|---|
+| `constants/nino.ts` | **Primary.** All visual tokens for the Nino / "There & Back" system |
+| `constants/theme.ts` | Wood sub-system — only the Skia wood-card ramp |
+
+New tokens go in `nino.ts`. Only add to `theme.ts` if it draws wood grain.
+
+## Standing divergence to preserve
+
+`nino.ts` sets `LAYOUT.touchMin: 90`. The **delivered** source tokens shipped
+`touchMin: 64`. This is a deliberate, documented override — CLAUDE.md rule 3
+declares 90pt non-negotiable, and a 2-year-old's finger lands 15–20pt off target.
+
+**Do not "fix" this back to 64** if you ever see the original token drop again.
+If it is genuinely revisited, change it in `constants/nino.ts`,
+`docs/DESIGN_SYSTEM.md` and CLAUDE.md rule 3 together, and record why.
 
 ## The pairs to check
 
 | Code | Doc |
 |---|---|
-| `constants/theme.ts` → `COLORS` | `docs/DESIGN_SYSTEM.md` → color tokens |
-| `constants/theme.ts` → `SPACING` | `docs/DESIGN_SYSTEM.md` → spacing scale |
-| `constants/theme.ts` → `CARD` | `docs/DESIGN_SYSTEM.md` → card dimensions |
-| `constants/theme.ts` → `ANIMATION` | `docs/ANIMATION_GUIDELINES.md` → timing table |
+| `constants/nino.ts` → `COLORS` | `docs/DESIGN_SYSTEM.md` → color tables |
+| `constants/nino.ts` → `TYPE` | `docs/DESIGN_SYSTEM.md` → typography |
+| `constants/nino.ts` → `SPACING`, `RADII` | `docs/DESIGN_SYSTEM.md` → spacing & radii |
+| `constants/nino.ts` → `LAYOUT` | `docs/DESIGN_SYSTEM.md` → layout · CLAUDE.md rule 3 |
+| `constants/nino.ts` → `SHADOWS` | `docs/DESIGN_SYSTEM.md` → shadows |
+| `constants/nino.ts` → `MOTION` | `docs/ANIMATION_GUIDELINES.md` → timing table |
+| `constants/theme.ts` → wood ramp | `docs/DESIGN_SYSTEM.md` → wood sub-system |
 | `constants/cards.ts` → `TRAVEL_CARDS` | `docs/PRODUCT.md` → card pair table |
 | `constants/sounds.ts` → `SoundKey` | `assets/sounds/README.md` → required files |
 

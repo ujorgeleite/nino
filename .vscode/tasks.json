@@ -1,0 +1,46 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      // Cmd+Shift+B runs this — the quality gate from the Makefile.
+      "label": "verify",
+      "type": "shell",
+      "command": "make verify",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$tsc", "$eslint-stylish"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "test (watch)",
+      "type": "shell",
+      "command": "make watch",
+      "group": { "kind": "test", "isDefault": true },
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "typecheck",
+      "type": "shell",
+      "command": "make typecheck",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "lint",
+      "type": "shell",
+      "command": "make lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "start dev server",
+      "type": "shell",
+      "command": "make start",
+      "isBackground": true,
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "expo doctor",
+      "type": "shell",
+      "command": "make doctor"
+    }
+  ]
+}

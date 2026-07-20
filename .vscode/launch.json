@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Debug the running app (Expo Go or a dev build). Start the dev server
+      // first — `make ios-device`, `make start`, or `make ios` — then attach.
+      // Provided by the Expo Tools extension.
+      "name": "Attach to Expo app",
+      "type": "expo",
+      "request": "attach",
+      "projectRoot": "${workspaceFolder}"
+    },
+    {
+      // Debug the Jest suite with breakpoints in hooks/ and utils/.
+      "name": "Debug Jest tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": ["--runInBand", "--watchAll=false"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      // Debug only the test file currently open in the editor.
+      "name": "Debug current test file",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/node_modules/.bin/jest",
+      "args": ["--runInBand", "--watchAll=false", "${relativeFile}"],
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

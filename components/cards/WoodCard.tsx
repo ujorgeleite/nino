@@ -1,6 +1,16 @@
 // components/cards/WoodCard.tsx
-// The face-DOWN side of a memory card: a wooden puzzle piece rendered with Skia.
+// Procedural wood rendered with Skia: a rounded plank with deterministic grain.
 // Static Skia canvas only (no animated Skia values) per ANIMATION_GUIDELINES.md.
+//
+// ⚠️ NOT CURRENTLY USED. Preserved deliberately: this is the only procedural
+// wood in the repo, and it is better than the flat gradient that
+// components/shapefit/WoodBoard.tsx draws today. Migrating that board to this
+// renderer is an open option.
+//
+// Grain is seeded from a caller-supplied `seed` (a Lehmer RNG), never
+// Math.random — random-per-render would make the grain shimmer every frame.
+//
+// If the WoodBoard migration is ruled out, delete this file and constants/theme.ts.
 
 import React, { useMemo } from 'react';
 import {

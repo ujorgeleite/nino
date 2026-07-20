@@ -1,0 +1,46 @@
+{
+  // --- Expo Tools ---------------------------------------------------------
+  // Validates app.json against the SDK 57 schema and enables the config
+  // preview (Cmd+Shift+P > "Expo: Preview config").
+  "files.associations": {
+    "app.json": "jsonc",
+    "eas.json": "jsonc"
+  },
+
+  // --- TypeScript ---------------------------------------------------------
+  // Use the workspace TypeScript (6.0.3), not the one bundled with VS Code,
+  // so the editor agrees with `npm run typecheck`.
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  // Imports in this project are relative — there is no @/* alias in tsconfig.
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "javascript.preferences.importModuleSpecifier": "relative",
+
+  // --- ESLint -------------------------------------------------------------
+  // Flat config (eslint.config.js). Surfaces lint errors inline instead of
+  // waiting for `make lint`.
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+
+  // --- Formatting ---------------------------------------------------------
+  // Format-on-save is OFF on purpose. The codebase predates Prettier here, so
+  // enabling it would rewrite unrelated files on every save and bury real
+  // changes in diff noise. Format explicitly with Shift+Alt+F when you want it.
+  "editor.formatOnSave": false,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "prettier.requireConfig": true,
+
+  // --- Search / explorer noise -------------------------------------------
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.expo": true,
+    "**/coverage": true,
+    "**/package-lock.json": true
+  },
+  "files.exclude": {
+    "**/.expo": true
+  },
+
+  // --- Jest ---------------------------------------------------------------
+  "jest.runMode": "on-demand"
+}

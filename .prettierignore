@@ -1,0 +1,12 @@
+# These files use deliberate column alignment for readability as lookup tables.
+# Prettier would collapse them into ragged single-space formatting.
+constants/theme.ts
+constants/cards.ts
+constants/sounds.ts
+
+node_modules
+.expo
+dist
+coverage
+package-lock.json
+assets

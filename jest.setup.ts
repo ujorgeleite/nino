@@ -6,8 +6,11 @@
 // no extend-expect import needed.)
 
 // --- Reanimated -------------------------------------------------------------
-// Ships its own Jest mock: animations resolve synchronously to their end value.
-jest.mock('react-native-reanimated', () => require('react-native-reanimated/mock'));
+// v4 no longer supports the old `react-native-reanimated/mock` entry point —
+// requiring it pulls in the native worklets module and throws. The supported
+// path is setUpTests(), which stubs the UI-thread runtime so animations
+// resolve synchronously to their end value.
+require('react-native-reanimated').setUpTests();
 
 // --- Haptics ----------------------------------------------------------------
 // Every call resolves; tests assert *that* feedback fired, not how it felt.
@@ -27,17 +30,37 @@ jest.mock('expo-keep-awake', () => ({
 }));
 
 // --- Audio ------------------------------------------------------------------
-// useAudioPlayer returns a stub player so sound wiring is assertable.
+// useAudioPlayer returns a stub player, cached per source, so a test can look
+// up the exact player for a cue instead of guessing at call order.
+// Retrieve one with `getAudioPlayerFor(SOUNDS.match)`.
+const mockAudioPlayers = new Map<unknown, Record<string, jest.Mock>>();
+
 jest.mock('expo-audio', () => ({
-  useAudioPlayer: jest.fn(() => ({
-    play: jest.fn(),
-    pause: jest.fn(),
-    seekTo: jest.fn(() => Promise.resolve()),
-    remove: jest.fn(),
-    volume: 1,
-  })),
+  useAudioPlayer: jest.fn((source: unknown) => {
+    if (!mockAudioPlayers.has(source)) {
+      mockAudioPlayers.set(source, {
+        play: jest.fn(),
+        pause: jest.fn(),
+        seekTo: jest.fn(),
+        remove: jest.fn(),
+        // The item voice and the music both swap source on one player.
+        replace: jest.fn(),
+      });
+    }
+    return mockAudioPlayers.get(source);
+  }),
   setAudioModeAsync: jest.fn(() => Promise.resolve()),
 }));
+
+/** The stub player for a given require()'d sound asset. */
+export function getAudioPlayerFor(source: unknown) {
+  return mockAudioPlayers.get(source);
+}
+
+// --- AsyncStorage -----------------------------------------------------------
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+);
 
 // --- Skia -------------------------------------------------------------------
 // Canvas rendering is not asserted in unit tests; render it as a plain View.

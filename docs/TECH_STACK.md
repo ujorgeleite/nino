@@ -28,7 +28,7 @@
 - Bundled in Expo Go for SDK 57 (verified via expo/bundledNativeModules.json)
 
 ### lottie-react-native
-- Pedro character animations only
+- Nino character animations only
 - Files live in assets/lottie/ (not yet committed — see README there)
 - Always set `resizeMode="cover"` for character animations
 

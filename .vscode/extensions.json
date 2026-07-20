@@ -1,0 +1,17 @@
+{
+  // VS Code prompts anyone opening this project to install these.
+  "recommendations": [
+    // Expo Tools — app.json/app.config IntelliSense + validation, config preview,
+    // asset and plugin autocomplete, debug config generation.
+    "expo.vscode-expo-tools",
+
+    // Matches the eslint.config.js and .prettierrc already in the repo.
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode"
+  ],
+
+  // Prettier is deliberately NOT format-on-save for this repo (see Makefile:
+  // it would rewrite ~25 pre-existing files). The extension is recommended so
+  // you can format touched files on demand.
+  "unwantedRecommendations": []
+}

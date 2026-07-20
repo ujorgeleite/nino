@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Pedrinho Travels",
+    "name": "There & Back",
     "slug": "pedrinho-travels",
     "version": "1.0.0",
     "orientation": "landscape",
@@ -14,7 +14,7 @@
       "package": "com.pedrinhotravels.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#FFF0DC"
+        "backgroundColor": "#FFF4E4"
       }
     },
     "web": {
@@ -28,9 +28,11 @@
         {
           "image": "./assets/images/splash-icon.png",
           "resizeMode": "contain",
-          "backgroundColor": "#FFF0DC"
+          "backgroundColor": "#FFF4E4"
         }
-      ]
+      ],
+      "expo-font",
+      "./plugins/withIosBuildFixes"
     ],
     "experiments": {
       "typedRoutes": true

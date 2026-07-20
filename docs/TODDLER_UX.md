@@ -13,7 +13,7 @@
 ### What works
 - Big colorful objects that react immediately to touch
 - Sound + animation + haptic together on every tap
-- Silly character reactions (Pedro wobbling, jumping, making sounds)
+- Silly character reactions (Nino wobbling, jumping, making sounds)
 - Clear "something happened" feedback in < 100ms
 - Short loops: tap → reaction → reward → next tap
 - Familiar objects (animals, vehicles, food)
@@ -34,13 +34,13 @@
 - Spacing between targets: minimum 8pt (prevent accidental hits)
 
 ### Session flow (Memory Match for age 2)
-1. App opens → Pedro appears floating, happy sound
+1. App opens → Nino appears floating, happy sound
 2. One tap on "Play" (big button with airplane icon, no text)
 3. Cards appear with a deal animation (satisfying)
 4. Child taps cards — each tap has immediate sound + flip
-5. Pair found → Pedro jumps, sparkle sound, cards light up green
+5. Pair found → Nino jumps, sparkle sound, cards light up green
 6. Mismatch → gentle wobble, soft "boing" sound, cards flip back
-7. All pairs → big celebration, Pedro dances, confetti, win fanfare
+7. All pairs → big celebration, Nino dances, confetti, win fanfare
 8. "Play again" button (circular arrow icon)
 Total time: 3–5 minutes max
 

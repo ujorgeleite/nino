@@ -46,6 +46,29 @@ useEffect(() => {
 }, [faceUp, progress]);
 ```
 
+### A worklet can only call another worklet
+
+`useAnimatedStyle`, `useDerivedValue`, `useAnimatedReaction` and every gesture
+callback run on the **UI thread**. Any helper they call must carry the
+`'worklet'` directive, or it does not exist on that runtime.
+
+```ts
+export function faceOpacity(progress: number) {
+  'worklet'; // ← without this, the animated style silently fails on device
+  return { front: progress >= 0.5 ? 1 : 0, back: progress >= 0.5 ? 0 : 1 };
+}
+```
+
+**This failure mode is invisible on web.** React Native Web has no second
+thread, so the helper resolves normally and everything looks correct — while a
+real iPad renders nothing. The memory card shipped broken exactly this way:
+extracting a helper to make the logic testable moved it across the boundary, the
+web E2E suite stayed green, and the cards stopped flipping on device.
+
+Before extracting anything out of a worklet body, ask where it will run. If the
+answer is "the UI thread", it needs the directive. A `'worklet'` function is
+still an ordinary function from JS, so tests and JS call sites are unaffected.
+
 **Never call `setState` from a worklet.** Cross the thread boundary explicitly:
 
 ```tsx

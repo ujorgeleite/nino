@@ -12,12 +12,12 @@ Animations for a 2-year-old must be:
 |---|---|---|
 | react-native-reanimated | All motion (flip, float, spring, scale) | Logic or state |
 | @shopify/react-native-skia | Static texture rendering (wood grain), canvas effects | Anything that needs JS re-render |
-| lottie-react-native | Pedro character animations (idle, celebrate, oops) | UI micro-interactions |
+| lottie-react-native | Nino character animations (idle, celebrate, oops) | UI micro-interactions |
 | expo-haptics | Physical feedback on every tap/match/mismatch | Background events |
 
 ## Reanimated patterns
 
-### Floating character (idle Pedro)
+### Floating character (idle Nino)
 ```typescript
 const y = useSharedValue(0);
 useEffect(() => {

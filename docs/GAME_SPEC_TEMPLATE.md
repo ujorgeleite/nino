@@ -18,7 +18,7 @@ Link or describe the mechanic to mirror.
 ## Mechanic
 Describe the core interaction loop in plain English.
 Example: "Child drags a clothing item from a pile to the correct slot
-in a suitcase. Correct slot glows. Pedro reacts."
+in a suitcase. Correct slot glows. Nino reacts."
 
 ## Gestures used
 - [ ] Tap
@@ -31,14 +31,14 @@ List all game content:
 |---|---|---|
 | item1 | emoji/PNG | Label |
 
-## Pedro reactions
+## Nino reactions
 - **On correct action:** [describe animation + sound]
 - **On incorrect action:** [describe animation + sound]
 - **On game complete:** [describe animation + sound, minimum 3 seconds]
 
 ## Screen layout
 Describe position of:
-- Pedro mascot
+- Nino mascot
 - Game board / play area
 - Score or progress indicator (if any)
 

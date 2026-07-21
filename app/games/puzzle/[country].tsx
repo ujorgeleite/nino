@@ -79,7 +79,6 @@ export default function PuzzleCountryRoute() {
   } = usePuzzle(blocks.map((b) => b.id));
 
   const targets = useRef<Record<string, Point>>({});
-  const homes = useRef<Record<string, Point>>({});
 
   const reaction = lastEvent === 'placed' ? 'celebrate' : null;
 
@@ -150,44 +149,37 @@ export default function PuzzleCountryRoute() {
   // left once they have had their share.
   const boardSize = Math.min(availableHeight * 0.78, width - trayWidth - SPACING.s4 * 4);
 
-  // Blocks wait smaller than their holes and grow to true size as they are
-  // carried, so a tidy tray costs the board almost nothing. Never magnified
-  // past true size: a block bigger than its hole would be a lie.
-  const restScaleFor = useCallback(
-    (block: (typeof blocks)[number]) => {
-      const largest = (Math.max(block.box[2], block.box[3]) / 100) * boardSize;
-      return Math.min(1, trayRow / Math.max(largest, 1));
-    },
-    [boardSize, trayRow],
-  );
+  // ONE SCALE FOR THE WHOLE TRAY, set by the biggest block.
+  //
+  // Scaling each block on its own to fill its slot was worse than it sounds.
+  // A block's outline is six units of ITS OWN box, so a small block scaled up
+  // hard got a proportionally enormous outline: the Eiffel tower's tip came
+  // out as a dark lozenge with a sliver of colour inside it, and the mermaid
+  // lost her head entirely. A shared scale keeps every outline the same
+  // weight on screen — and keeps the relative sizes honest, so a roof looks
+  // bigger than a door, which is a cue in itself.
+  //
+  // Blocks still wait smaller than their holes and grow to true size as they
+  // are carried. Never magnified past true size: a block bigger than its hole
+  // would be a lie about where it goes.
+  const restScale = useMemo(() => {
+    const biggest = Math.max(
+      ...blocks.map((b) => (Math.max(b.box[2], b.box[3]) / 100) * boardSize),
+      1,
+    );
+    return Math.min(1, trayRow / biggest);
+  }, [blocks, boardSize, trayRow]);
 
   const onHoleMeasured = useCallback((id: string, centre: Point) => {
     targets.current[id] = centre;
   }, []);
 
-  const onHomeMeasured = useCallback((id: string, centre: Point) => {
-    homes.current[id] = centre;
-  }, []);
-
   const handleDrop = useCallback(
-    (id: string, point: Point): DropResult => {
-      const didPlace = tryPlace(id, point, targets.current);
-      if (!didPlace) return { placed: false, offset: null };
-
-      const target = targets.current[id];
-      const home = homes.current[id];
-      if (!target || !home) return { placed: true, offset: null };
-      return { placed: true, offset: { x: target.x - home.x, y: target.y - home.y } };
-    },
+    (id: string, point: Point): DropResult => ({
+      placed: tryPlace(id, point, targets.current),
+    }),
     [tryPlace],
   );
-
-  const placedOffset = useCallback((id: string): Point | null => {
-    const target = targets.current[id];
-    const home = homes.current[id];
-    if (!target || !home) return null;
-    return { x: target.x - home.x, y: target.y - home.y };
-  }, []);
 
   /** Finishing opens a door: the same game, somewhere not yet built. */
   const goNext = useCallback(() => {
@@ -239,21 +231,16 @@ export default function PuzzleCountryRoute() {
                 const block = blocks.find((b) => b.id === id);
                 if (!block) return null;
                 return (
-                  <TraySlot
-                    key={block.id}
-                    size={trayRow}
-                    onMeasured={(centre) => onHomeMeasured(block.id, centre)}
-                  >
+                  <TraySlot key={block.id} size={trayRow}>
                     <BlockPiece
                       block={block}
                       boardSize={boardSize}
-                      restScale={restScaleFor(block)}
-                    placed={placed.has(block.id)}
-                    resolvePlacedOffset={() => placedOffset(block.id)}
-                    round={round}
-                    onGrab={() => liftPiece(block.id)}
-                    onDrop={(point) => handleDrop(block.id, point)}
-                    // Parent-facing. The child navigates by shape.
+                      restScale={restScale}
+                      placed={placed.has(block.id)}
+                      round={round}
+                      onGrab={() => liftPiece(block.id)}
+                      onDrop={(point) => handleDrop(block.id, point)}
+                      // Parent-facing. The child navigates by shape.
                       accessibilityLabel={block.label}
                       testID={`piece-${block.id}`}
                     />
@@ -278,37 +265,18 @@ export default function PuzzleCountryRoute() {
   );
 }
 
-/** Holds a block's home position and reports it in window space. */
-function TraySlot({
-  size,
-  onMeasured,
-  children,
-}: {
-  size: number;
-  onMeasured: (centre: Point) => void;
-  children: React.ReactNode;
-}) {
-  const ref = useRef<View | null>(null);
-
-  const measure = useCallback(() => {
-    ref.current?.measureInWindow((x, y, w, h) => {
-      onMeasured({ x: x + w / 2, y: y + h / 2 });
-    });
-  }, [onMeasured]);
-
+/** A resting place in the tray. It no longer measures anything: a block
+ * reports its own position at the instant it is picked up, which cannot go
+ * stale the way a cached layout measurement did. */
+function TraySlot({ size, children }: { size: number; children: React.ReactNode }) {
   return (
-    // CENTRED, and the game is wrong without it.
-    //
-    // The slot reports its own centre as the block's home, and the placed
-    // offset is measured from there. A narrow block — the door — left-aligned
-    // in a wide slot sat 57pt from that centre, so it landed 57pt from its
-    // hole: visibly beside the doorway rather than in it. It only showed when
-    // the shuffle happened to deal that block first, which made it look like
-    // flakiness rather than a bug.
     <View
-      ref={ref}
-      onLayout={measure}
-      style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
+      style={{
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
       {children}
     </View>

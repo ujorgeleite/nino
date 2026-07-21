@@ -6,6 +6,7 @@
 // than a class or an opacity.
 
 import { test, expect, type Page } from '@playwright/test';
+import { isPlaced } from './helpers/placed';
 
 /**
  * Parts differ per country — a castle has four masses, a mountain three — so
@@ -26,16 +27,6 @@ async function centre(page: Page, testId: string) {
   const box = await page.getByTestId(testId).boundingBox();
   if (!box) throw new Error(`${testId} has no box`);
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-}
-
-/** Is a piece sitting in its cell? Detected by position. */
-async function isPlaced(page: Page, id: string): Promise<boolean> {
-  const piece = await page.getByTestId(`piece-${id}`).boundingBox();
-  const cell = await page.getByTestId(`hole-${id}`).boundingBox();
-  if (!piece || !cell) return false;
-  const pc = { x: piece.x + piece.width / 2, y: piece.y + piece.height / 2 };
-  const cc = { x: cell.x + cell.width / 2, y: cell.y + cell.height / 2 };
-  return Math.hypot(pc.x - cc.x, pc.y - cc.y) < Math.max(cell.width, 40) / 1.5;
 }
 
 async function drag(page: Page, id: string, to: { x: number; y: number }) {

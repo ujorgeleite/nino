@@ -9,6 +9,7 @@ import {
   ALL_LANDMARKS,
   BLOCK_FILLS,
   BLOCK_INK,
+  HAND_DRAWN,
   landmarkFor,
   type Block,
 } from './landmarks';
@@ -149,6 +150,43 @@ describe('the Netherlands canal house', () => {
     // quietly become three stacked rectangles.
     const other = landmarkFor('de', 'house');
     expect(other!.blocks.map((b) => b.id)).not.toEqual(['roof', 'body', 'door']);
+  });
+});
+
+describe('every country is drawn by hand', () => {
+  const CODES = ['nl', 'be', 'de', 'fr', 'gb', 'dk', 'se', 'no', 'ch', 'at', 'it'];
+
+  it('all eleven have a landmark of their own', () => {
+    // The fallback — a cut derived from whichever scene primitive a country
+    // happens to use — is a safety net for a country nobody has drawn yet, not
+    // a place any of these should end up. A country quietly falling through to
+    // it is a country whose puzzle is generic.
+    expect(Object.keys(HAND_DRAWN).sort()).toEqual([...CODES].sort());
+  });
+
+  it.each(CODES)('%s: its puzzle uses its OWN drawing', (code) => {
+    const drawn = HAND_DRAWN[code];
+    // 'house' is passed as the primitive so that a country falling through to
+    // the derived table would visibly return the generic house instead.
+    expect(landmarkFor(code, 'house')).toBe(drawn);
+  });
+
+  it('no two countries build the same thing', () => {
+    const titles = Object.values(HAND_DRAWN).map((l) => l.title);
+    // Several countries legitimately build a castle, so the ids are what has
+    // to differ — the drawings, not the words above them.
+    const shapes = Object.values(HAND_DRAWN).map((l) =>
+      l.blocks.map((b) => b.path).join('|'),
+    );
+    expect(new Set(shapes).size).toBe(shapes.length);
+    expect(titles.length).toBe(11);
+  });
+
+  it.each(CODES)('%s: paints something on at least one block', (code) => {
+    // What separates a drawing from a silhouette: windows, a doorknob, snow on
+    // a peak. A landmark with no painted detail anywhere is three plain slabs.
+    const painted = HAND_DRAWN[code].blocks.some((b) => (b.details?.length ?? 0) > 0);
+    expect(painted).toBe(true);
   });
 });
 

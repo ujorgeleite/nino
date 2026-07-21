@@ -6,6 +6,7 @@
 // the scenery drowns out the game.
 
 import { test, expect, type Page } from '@playwright/test';
+import { isPlaced } from './helpers/placed';
 
 /** Parts differ per country, so ids are read from the live DOM. */
 async function partIds(page: Page): Promise<string[]> {
@@ -88,19 +89,9 @@ test.describe('easter eggs', () => {
     }
     await page.mouse.up();
 
-    await expect
-      .poll(async () => {
-        const p = await page.getByTestId(`piece-${first}`).boundingBox();
-        const c = await page.getByTestId(`hole-${first}`).boundingBox();
-        if (!p || !c) return false;
-        return (
-          Math.hypot(
-            p.x + p.width / 2 - (c.x + c.width / 2),
-            p.y + p.height / 2 - (c.y + c.height / 2),
-          ) < Math.max(c.width, 40) / 1.5
-        );
-      }, { timeout: 4000 })
-      .toBe(true);
+    // "Placed" is what the BOARD draws, not where the dragged piece ended up:
+    // the piece stays in the tray and is hidden the moment it lands.
+    await expect.poll(() => isPlaced(page, first), { timeout: 4000 }).toBe(true);
   });
 
   test('scenery never blocks a drag in Shape Fit', async ({ page }) => {

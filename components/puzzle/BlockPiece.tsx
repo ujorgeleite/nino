@@ -34,16 +34,11 @@ import { LAYOUT } from '../../constants/nino';
 
 /** Firm and quick: a block that drifts home slowly feels broken, not gentle. */
 const HOME_SPRING = { damping: 22, stiffness: 420, overshootClamping: true } as const;
-/** A little bounce as it seats — the reward for getting it right. */
-const SEAT_SPRING = { damping: 15, stiffness: 320 } as const;
-
 /** One full wiggle. Slow on purpose: this is the calm game. */
 const WIGGLE_MS = 2800;
 
 export type DropResult = {
   placed: boolean;
-  /** Where to sit, relative to the tray slot, once placed. */
-  offset: { x: number; y: number } | null;
 };
 
 type Props = {
@@ -53,7 +48,6 @@ type Props = {
   /** How large the block sits in the tray, as a share of its true size. */
   restScale: number;
   placed: boolean;
-  resolvePlacedOffset?: () => { x: number; y: number } | null;
   /** Bumped on restart so a block JUMPS home instead of flying across. */
   round?: number;
   onGrab: () => void;
@@ -67,7 +61,6 @@ export function BlockPiece({
   boardSize,
   restScale,
   placed,
-  resolvePlacedOffset,
   round = 0,
   onGrab,
   onDrop,
@@ -91,27 +84,38 @@ export function BlockPiece({
     );
   }, [wiggle]);
 
-  const settle = (target: { x: number; y: number } | null, instant = false) => {
+  /**
+   * A BLOCK ALWAYS GOES BACK TO ITS SLOT, placed or not — and nobody sees it
+   * do so when it is placed, because the BOARD draws placed blocks and this
+   * view is hidden the instant it lands.
+   *
+   * It used to travel to the hole instead, which meant knowing where its slot
+   * was: measured on layout, cached, and wrong the moment a restart reshuffled
+   * the tray, so blocks flew 559pt to where they used to live. Measuring at
+   * grab time cut that to a slot's height and left it INTERMITTENT, because
+   * `measureInWindow` is asynchronous and a quick drag beat its callback.
+   *
+   * There was never anything to compute. The travel was invisible.
+   */
+  const settle = (instant = false) => {
     'worklet';
-    restX.value = target?.x ?? 0;
-    restY.value = target?.y ?? 0;
+    restX.value = 0;
+    restY.value = 0;
     if (instant) {
-      dx.value = restX.value;
-      dy.value = restY.value;
+      dx.value = 0;
+      dy.value = 0;
       return;
     }
-    const spring = target ? SEAT_SPRING : HOME_SPRING;
-    dx.value = withSpring(restX.value, spring);
-    dy.value = withSpring(restY.value, spring);
+    dx.value = withSpring(0, HOME_SPRING);
+    dy.value = withSpring(0, HOME_SPRING);
   };
 
   const lastRound = useRef(round);
 
   useEffect(() => {
-    const offset = placed ? (resolvePlacedOffset?.() ?? null) : null;
     const isNewRound = round !== lastRound.current;
     lastRound.current = round;
-    settle(offset, isNewRound);
+    settle(isNewRound);
     // The pop-in lives on the BOARD's hole, not here: a placed block is drawn
     // by the board and this view is hidden, so a pop played on it would be
     // invisible. See BlockPuzzleBoard's Hole.
@@ -119,8 +123,8 @@ export function BlockPiece({
   }, [placed, round]);
 
   function resolve(point: { x: number; y: number }) {
-    const result = onDrop(point);
-    settle(result.placed ? result.offset : null);
+    onDrop(point);
+    settle();
   }
 
   const pan = Gesture.Pan()

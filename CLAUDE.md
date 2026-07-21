@@ -26,6 +26,12 @@ Back mode lowers stimulation for the end of the day; visual disorder is
 stimulating, alignment is settling. Any screen that lays elements out must
 read the mode and respond. Full rules in `docs/DESIGN_SYSTEM.md`.
 
+**One deliberate exception:** the Block Puzzle is a Back game by nature —
+slow, tidy, three big pieces, no hurry — so it wears the evening whatever
+the toggle says (`components/puzzle/DuskScene.tsx`). Being cheerful in the
+morning and calm at night would fight what the game is. If the toggle should
+reach it after all, that is a product decision to take deliberately.
+
 ### Design system
 **`constants/nino.ts` is the source of truth for all visual tokens.**
 Documented in `docs/DESIGN_SYSTEM.md`.

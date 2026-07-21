@@ -31,7 +31,7 @@ async function centre(page: Page, testId: string) {
 /** Is a piece sitting in its cell? Detected by position. */
 async function isPlaced(page: Page, id: string): Promise<boolean> {
   const piece = await page.getByTestId(`piece-${id}`).boundingBox();
-  const cell = await page.getByTestId(`cell-${id}`).boundingBox();
+  const cell = await page.getByTestId(`hole-${id}`).boundingBox();
   if (!piece || !cell) return false;
   const pc = { x: piece.x + piece.width / 2, y: piece.y + piece.height / 2 };
   const cc = { x: cell.x + cell.width / 2, y: cell.y + cell.height / 2 };
@@ -59,7 +59,7 @@ test.describe('Puzzle', () => {
     const ids = await partIds(page);
     expect(ids.length).toBeGreaterThanOrEqual(3);
     for (const id of ids) {
-      await expect(page.getByTestId(`cell-${id}`)).toBeVisible();
+      await expect(page.getByTestId(`hole-${id}`)).toBeVisible();
       await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
     }
   });
@@ -83,7 +83,7 @@ test.describe('Puzzle', () => {
     const [first] = await partIds(page);
     expect(await isPlaced(page, first)).toBe(false);
 
-    await drag(page, first, await centre(page, `cell-${first}`));
+    await drag(page, first, await centre(page, `hole-${first}`));
 
     expect(await isPlaced(page, first)).toBe(true);
   });
@@ -96,13 +96,13 @@ test.describe('Puzzle', () => {
     const [first] = ids;
     const other = ids[ids.length - 1];
 
-    await drag(page, first, await centre(page, `cell-${other}`));
+    await drag(page, first, await centre(page, `hole-${other}`));
 
     expect(await isPlaced(page, first)).toBe(false);
     expect(await isPlaced(page, other)).toBe(false);
 
     // And the same piece still works afterwards — a miss costs nothing.
-    await drag(page, first, await centre(page, `cell-${first}`));
+    await drag(page, first, await centre(page, `hole-${first}`));
     expect(await isPlaced(page, first)).toBe(true);
   });
 
@@ -110,12 +110,12 @@ test.describe('Puzzle', () => {
     await openPuzzle(page);
 
     for (const id of await partIds(page)) {
-      await drag(page, id, await centre(page, `cell-${id}`));
+      await drag(page, id, await centre(page, `hole-${id}`));
     }
 
     const overlay = page.getByTestId('win-overlay');
     await expect(overlay).toBeVisible();
-    await expect(overlay).toContainText('You made the picture!');
+    await expect(overlay).toContainText('You built it!');
   });
 
   test('finishing offers the NEXT place, not a replay', async ({ page }) => {
@@ -123,7 +123,7 @@ test.describe('Puzzle', () => {
     // succeeded is the least interesting possible next thing.
     await openPuzzle(page, 'nl');
     for (const id of await partIds(page)) {
-      await drag(page, id, await centre(page, `cell-${id}`));
+      await drag(page, id, await centre(page, `hole-${id}`));
     }
     await expect(page.getByTestId('win-overlay')).toBeVisible();
 
@@ -141,7 +141,7 @@ test.describe('Puzzle', () => {
     // place. A fresh board must simply BE.
     await openPuzzle(page);
     const ids = await partIds(page);
-    await drag(page, ids[0], await centre(page, `cell-${ids[0]}`));
+    await drag(page, ids[0], await centre(page, `hole-${ids[0]}`));
     expect(await isPlaced(page, ids[0])).toBe(true);
 
     await page.getByRole('button', { name: 'Start again' }).click();
@@ -156,9 +156,26 @@ test.describe('Puzzle', () => {
     }
   });
 
-  test('no text a pre-reader would need to read', async ({ page }) => {
+  test('nothing a pre-reader has to read in order to play', async ({ page }) => {
+    // RULE 1 IS ABOUT DEPENDENCE, NOT ABOUT INK.
+    //
+    // The board carries a small title ("Build the house") and the tray is
+    // labelled "pieces". Both are for whoever is sitting next to the child,
+    // and the game is fully playable with neither: the instruction is the
+    // dashed hole, which is a shape.
+    //
+    // What must never appear is a word the child NEEDS — a direction, a
+    // choice, a number they have to act on. This asserts the labels are the
+    // only text and that they say what they are allowed to say.
     await openPuzzle(page);
-    const boardText = await page.getByTestId('puzzle-board').innerText();
-    expect(boardText).not.toMatch(/[a-zA-Z0-9]/);
+    const boardText = (await page.getByTestId('puzzle-board').innerText()).trim();
+
+    expect(boardText.split('\n').filter(Boolean).length).toBe(1);
+    expect(boardText).toMatch(/^Build the /);
+
+    // No counts, scores or timers anywhere on the screen.
+    const screen = await page.locator('body').innerText();
+    expect(screen).not.toMatch(/\b\d+\s*\/\s*\d+\b/);
+    expect(screen.toLowerCase()).not.toMatch(/score|time|left|wrong|try again/);
   });
 });

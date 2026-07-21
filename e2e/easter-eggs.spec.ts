@@ -75,7 +75,7 @@ test.describe('easter eggs', () => {
     };
     const [first] = await partIds(page);
     const from = await centre(`piece-${first}`);
-    const to = await centre(`cell-${first}`);
+    const to = await centre(`hole-${first}`);
 
     await page.mouse.move(from.x, from.y);
     await page.mouse.down();
@@ -91,7 +91,7 @@ test.describe('easter eggs', () => {
     await expect
       .poll(async () => {
         const p = await page.getByTestId(`piece-${first}`).boundingBox();
-        const c = await page.getByTestId(`cell-${first}`).boundingBox();
+        const c = await page.getByTestId(`hole-${first}`).boundingBox();
         if (!p || !c) return false;
         return (
           Math.hypot(

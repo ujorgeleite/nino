@@ -60,7 +60,7 @@ test.describe('performance', () => {
     // feedback inside 100ms; the settle spring adds a little on top.
     const [first] = await partIds(page);
     const from = await centre(`piece-${first}`);
-    const to = await centre(`cell-${first}`);
+    const to = await centre(`hole-${first}`);
     const t0 = Date.now();
 
     await page.mouse.move(from.x, from.y);
@@ -78,7 +78,7 @@ test.describe('performance', () => {
       .poll(
         async () => {
           const p = await page.getByTestId(`piece-${first}`).boundingBox();
-          const c = await page.getByTestId(`cell-${first}`).boundingBox();
+          const c = await page.getByTestId(`hole-${first}`).boundingBox();
           if (!p || !c) return false;
           return (
             Math.hypot(

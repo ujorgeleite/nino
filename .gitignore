@@ -52,3 +52,6 @@ yarn-error.*
 # Symlinks into .agents/, recreated by `npx skills add expo/skills`.
 .claude/skills/expo-*
 .claude/skills/eas-*
+
+# Local screenshots, for looking at — never committed.
+/screenshots/

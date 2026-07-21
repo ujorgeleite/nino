@@ -111,7 +111,7 @@ test.describe('Puzzle', () => {
 
       const cells = await partIds(page);
       for (const id of cells) {
-        await expect(page.getByTestId(`cell-${id}`)).toBeVisible();
+        await expect(page.getByTestId(`hole-${id}`)).toBeVisible();
         await expect(page.getByTestId(`piece-${id}`)).toBeVisible();
       }
 
@@ -123,7 +123,7 @@ test.describe('Puzzle', () => {
 
       for (const id of cells) {
         const from = await centre(`piece-${id}`);
-        const to = await centre(`cell-${id}`);
+        const to = await centre(`hole-${id}`);
         await page.mouse.move(from.x, from.y);
         await page.mouse.down();
         for (let i = 1; i <= 8; i++) {

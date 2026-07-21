@@ -6,7 +6,7 @@
 // The win haptic burst runs three heavy pulses; the miss gets one soft tap.
 
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import Glyph from './Glyph';
 import Mascot from '../mascot/Mascot';
@@ -25,6 +25,12 @@ type Props = {
    */
   actionLabel?: string;
   onPlayAgain: () => void;
+  /**
+   * Rebuild the same thing. Optional, because not every game wants it: a child
+   * who loved this one should be able to do it again without going anywhere,
+   * but offering it where there is nothing to repeat would be noise.
+   */
+  onAgain?: () => void;
 };
 
 export function WinOverlay({
@@ -32,6 +38,7 @@ export function WinOverlay({
   detail,
   actionLabel = 'Play again',
   onPlayAgain,
+  onAgain,
 }: Props) {
   const { play } = useSound();
 
@@ -63,21 +70,51 @@ export function WinOverlay({
         </Text>
       ) : null}
 
-      <Pressable
-        onPress={onPlayAgain}
-        accessibilityRole="button"
-        accessibilityLabel={actionLabel}
-        hitSlop={SPACING.s4}
-        style={({ pressed }) => [styles.again, pressed && styles.pressed]}
-      >
+      <View style={styles.actions}>
+        {onAgain ? (
+          <Pressable
+            onPress={onAgain}
+            accessibilityRole="button"
+            accessibilityLabel="Again"
+            hitSlop={SPACING.s4}
+            style={({ pressed }) => [
+              styles.again,
+              styles.secondary,
+              pressed && styles.pressed,
+            ]}
+            testID="win-again"
+          >
+            <Glyph name="restart" size={36} color={COLORS.ninoInk} />
+            <Text
+              style={[styles.againText, styles.secondaryText]}
+              allowFontScaling={false}
+            >
+              Again
+            </Text>
+          </Pressable>
+        ) : null}
+
+        <Pressable
+          onPress={onPlayAgain}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+          hitSlop={SPACING.s4}
+          style={({ pressed }) => [styles.again, pressed && styles.pressed]}
+          testID="win-next"
+        >
         {/* THE ICON IS THE BUTTON, the word is for whoever is sitting next to
             the child. This is the single control that continues the game, and
             rule 1 says a child who cannot read must never depend on text. */}
-        <Glyph name={actionLabel === 'Play again' ? 'restart' : 'play'} size={40} color={COLORS.paper} />
-        <Text style={styles.againText} allowFontScaling={false}>
-          {actionLabel}
-        </Text>
-      </Pressable>
+          <Glyph
+            name={actionLabel === 'Play again' ? 'restart' : 'play'}
+            size={40}
+            color={COLORS.paper}
+          />
+          <Text style={styles.againText} allowFontScaling={false}>
+            {actionLabel}
+          </Text>
+        </Pressable>
+      </View>
     </Animated.View>
   );
 }
@@ -106,6 +143,9 @@ const styles = StyleSheet.create({
     fontSize: TYPE.sizes.body,
     color: COLORS.sun,
   },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.s4 },
+  secondary: { backgroundColor: COLORS.paper },
+  secondaryText: { color: COLORS.ninoInk },
   again: {
     flexDirection: 'row',
     alignItems: 'center',
